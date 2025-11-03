@@ -10,17 +10,17 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 
-namespace GreenTwinUpdater
+namespace GreenTwinUpdater.Function
 {
     public class IoTCentralTrigger
     {
-        private readonly ILogger log;
-        private readonly DigitalTwinsClient client;
+        private readonly ILogger _logger;
+        private readonly DigitalTwinsClient _client;
 
         public IoTCentralTrigger(ILoggerFactory loggerFactory, DigitalTwinsClient adtClient)
         {
-            log = loggerFactory.CreateLogger<IoTCentralTrigger>();
-            client = adtClient;
+            _logger = loggerFactory.CreateLogger<IoTCentralTrigger>();
+            _client = adtClient;
         }
 
         [Function("IoTCentralTrigger")]
@@ -80,12 +80,12 @@ namespace GreenTwinUpdater
 
                 try
                 {
-                    await client.UpdateDigitalTwinAsync(deviceId, updatePatch);
-                    log.LogInformation("Successfully 'Replaced' properties on twin '{DeviceId}'", deviceId);
+                    await _client.UpdateDigitalTwinAsync(deviceId, updatePatch);
+                    _logger.LogInformation("Successfully 'Replaced' properties on twin '{DeviceId}'", deviceId);
                 }
                 catch (RequestFailedException replaceEx) when (replaceEx.Status == 400)
                 {
-                    log.LogWarning(replaceEx, "Failed to 'Replace' for twin '{DeviceId}'. Retrying with 'Add'...", deviceId);
+                    _logger.LogWarning(replaceEx, "Failed to 'Replace' for twin '{DeviceId}'. Retrying with 'Add'...", deviceId);
 
                     var addPatch = new JsonPatchDocument();
                     foreach (var item in telemetryValues)
@@ -93,17 +93,17 @@ namespace GreenTwinUpdater
                         addPatch.AppendAdd($"/{item.Key}", item.Value);
                     }
 
-                    await client.UpdateDigitalTwinAsync(deviceId, addPatch);
-                    log.LogInformation("Successfully 'Added' new properties to twin '{DeviceId}'", deviceId);
+                    await _client.UpdateDigitalTwinAsync(deviceId, addPatch);
+                    _logger.LogInformation("Successfully 'Added' new properties to twin '{DeviceId}'", deviceId);
                 }
             }
             catch (JsonException jsonEx)
             {
-                log.LogError(jsonEx, "JSON Parsing error, SequenceNumber {SequenceNumber}. Body: {Body}", message.SequenceNumber, messageBody);
+                _logger.LogError(jsonEx, "JSON Parsing error, SequenceNumber {SequenceNumber}. Body: {Body}", message.SequenceNumber, messageBody);
             }
             catch (RequestFailedException adtEx)
             {
-                log.LogError(adtEx, "ADT API error for twin '{DeviceId}'. Status: {Status} ({ErrorCode}).", deviceId ?? "unknown", adtEx.Status, adtEx.ErrorCode ?? "N/A");
+                _logger.LogError(adtEx, "ADT API error for twin '{DeviceId}'. Status: {Status} ({ErrorCode}).", deviceId ?? "unknown", adtEx.Status, adtEx.ErrorCode ?? "N/A");
 
                 if (adtEx.Status >= 500 || adtEx.Status == 429)
                 {
@@ -112,7 +112,7 @@ namespace GreenTwinUpdater
             }
             catch (Exception ex)
             {
-                log.LogError(ex, "Unexpected error, SequenceNumber {SequenceNumber}. DeviceId: {DeviceId}", message.SequenceNumber, deviceId ?? "N/A");
+                _logger.LogError(ex, "Unexpected error, SequenceNumber {SequenceNumber}. DeviceId: {DeviceId}", message.SequenceNumber, deviceId ?? "N/A");
                 throw;
             }
         }
