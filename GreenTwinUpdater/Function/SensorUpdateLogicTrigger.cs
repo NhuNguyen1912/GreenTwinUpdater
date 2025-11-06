@@ -12,14 +12,12 @@ namespace GreenTwinUpdater
     public class SensorUpdateLogicTrigger
     {
         private readonly ILogger _logger;
-        private readonly DigitalTwinsClient _adtClient;
-        private const double TEMP_TOLERANCE = 1.0;
+        private readonly DigitalTwinsClient _adt;
 
         public SensorUpdateLogicTrigger(ILoggerFactory loggerFactory, DigitalTwinsClient adtClient)
         {
             _logger = loggerFactory.CreateLogger<SensorUpdateLogicTrigger>();
-            _adtClient = adtClient;
-            _logger.LogInformation("LogicTrigger (Function 2) instance created.");
+            _adt = adtClient; // DI ở Program.cs
         }
 
         [Function("SensorUpdateLogicTrigger")]
@@ -27,243 +25,137 @@ namespace GreenTwinUpdater
             [ServiceBusTrigger("monitoringeventgridmessages", Connection = "ServiceBusConnection")]
             ServiceBusReceivedMessage message)
         {
-            string messageBody = "(unable to read body)";
-            string? sensorId = null;
-
+            string body = "(unparsed)";
             try
             {
-                messageBody = message.Body.ToString();
-                using JsonDocument jsonDoc = JsonDocument.Parse(messageBody);
-                JsonElement root = jsonDoc.RootElement;
+                body = message.Body.ToString();
+                using var doc = JsonDocument.Parse(body);
+                var root = doc.RootElement;
 
-                sensorId = root.GetProperty("subject").GetString()!;
-                _logger.LogInformation("LogicTrigger: Received event from Sensor '{SensorId}'", sensorId);
+                var data = root.TryGetProperty("data", out var dataEl) ? dataEl : root;
 
-                JsonElement patch = root.GetProperty("data").GetProperty("data").GetProperty("patch")[0];
-                string op = patch.GetProperty("op").GetString()!;
-                string path = patch.GetProperty("path").GetString()!;
-                JsonElement valueElement = patch.GetProperty("value");
-
-                if (op != "replace" && op != "add")
+                JsonElement patchParent;
+                if (data.TryGetProperty("data", out var inner) && inner.TryGetProperty("patch", out var p1))
+                    patchParent = p1;
+                else if (data.TryGetProperty("patch", out var p2))
+                    patchParent = p2;
+                else
                 {
-                    _logger.LogInformation("Skipping operation '{Op}' for {SensorId}", op, sensorId);
+                    _logger.LogDebug("No patch array in event. Body: {Body}", body);
                     return;
                 }
 
-                // 2. TÌM PHÒNG (ROOM) QUẢN LÝ SENSOR NÀY
-                string roomId = await FindParentRoomAsync(sensorId); 
+                if (patchParent.ValueKind != JsonValueKind.Array || patchParent.GetArrayLength() == 0)
+                    return;
+
+                if (!root.TryGetProperty("subject", out var subjectEl) || subjectEl.ValueKind != JsonValueKind.String)
+                {
+                    _logger.LogDebug("Missing subject (sensor twin id). Body: {Body}", body);
+                    return;
+                }
+                string sensorId = subjectEl.GetString()!;
+                _logger.LogInformation("Event from sensor {Sensor}", sensorId);
+
+                // Tìm Room cha qua hasDevice (version-agnostic)
+                string roomId = await FindParentRoomAsync(sensorId);
                 if (string.IsNullOrEmpty(roomId))
                 {
-                    _logger.LogWarning("Sensor {SensorId} is not attached to any room ('hasDevice'). Skipping logic.", sensorId);
+                    _logger.LogWarning("Sensor {Sensor} chưa gắn vào Room qua 'hasDevice'.", sensorId);
                     return;
                 }
 
-                // 3. KIỂM TRA ƯU TIÊN 1: MANUAL OVERRIDE
-                var roomTwinResponse = await _adtClient.GetDigitalTwinAsync<BasicDigitalTwin>(roomId);
-                BasicDigitalTwin roomTwin = roomTwinResponse.Value;
+                bool writeLastMotion = false;
+                DateTime lastMotionUtc = DateTime.UtcNow;
+                bool writeTemperature = false;
+                double tempValue = 0;
 
-                if (roomTwin.Contents.TryGetValue("overrideUntil", out var overrideUntilProp) &&
-                    overrideUntilProp != null &&
-                    overrideUntilProp is JsonElement overrideElem)
+                foreach (var patch in patchParent.EnumerateArray())
                 {
-                    if (overrideElem.ValueKind != JsonValueKind.Null &&
-                        overrideElem.TryGetDateTimeOffset(out DateTimeOffset overrideTime) &&
-                        overrideTime > DateTimeOffset.UtcNow)
+                    if (!patch.TryGetProperty("op", out var opEl) ||
+                        !patch.TryGetProperty("path", out var pathEl) ||
+                        !patch.TryGetProperty("value", out var valEl))
+                        continue;
+
+                    var op = opEl.GetString();
+                    if (op is not ("add" or "replace")) continue;
+
+                    var path = pathEl.GetString() ?? "";
+                    if (path.Equals("/motion", StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogWarning("Room {RoomId} is in Manual Override. Skipping logic for {SensorId}.", roomId, sensorId);
-                        return;
+                        if (valEl.ValueKind == JsonValueKind.True)
+                        {
+                            writeLastMotion = true; // chỉ khi motion=true
+                        }
+                    }
+                    else if (path.Equals("/temperature", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (valEl.ValueKind == JsonValueKind.Number)
+                        {
+                            writeTemperature = true;
+                            tempValue = valEl.GetDouble();
+                        }
                     }
                 }
 
-                bool scheduleOrMotionActive = true;
-
-                // 5. XỬ LÝ LOGIC THEO TỪNG LOẠI SENSOR
-
-                // --- A. LOGIC KHI CÓ CHUYỂN ĐỘNG (MOTION) ---
-                if (path == "/motionDetected" && valueElement.ValueKind == JsonValueKind.True)
+                if (writeLastMotion)
                 {
-                    _logger.LogWarning("LOGIC: Motion detected in Room {RoomId}.", roomId);
-
-                    if (scheduleOrMotionActive)
-                    {
-                        await SafeSendPatchAsync(roomId, "LightSwitch", "/on", true, "hasDevice", null);
-                        await SafeSendPatchAsync(roomId, "ACUnit", "/mode", "Auto", "hasDevice", "Off");
-                    }
-
-                    string metricsId = await FindRelatedTwinAsync(roomId, "hasMetrics");
-                    if (!string.IsNullOrEmpty(metricsId))
-                    {
-                        // Hàm này không cần tên quan hệ, nó cập nhật trực tiếp metricsId
-                        await SafeSendPatchAsync(metricsId, null, "/lastSeen", DateTime.UtcNow);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Room {RoomId} is missing 'hasMetrics' relationship. Cannot update lastSeen.", roomId);
-                    }
+                    await UpsertComponentPropsAsync(
+                        roomId, "metrics",
+                        ("/lastMotionUtc", lastMotionUtc)
+                    );
+                    _logger.LogInformation("Updated metrics.lastMotionUtc for {Room}", roomId);
                 }
 
-                // --- B. LOGIC KHI NHIỆT ĐỘ THAY ĐỔI (TEMPERATURE) ---
-                if (path == "/temperature" && valueElement.ValueKind == JsonValueKind.Number)
+                if (writeTemperature)
                 {
-                    double currentTemp = valueElement.GetDouble();
-                    _logger.LogInformation("LOGIC: Temperature changed in Room {RoomId}: {Temp}C", roomId, currentTemp);
-
-                    if (scheduleOrMotionActive)
-                    {
-                        await HandleTemperatureChangeAsync(roomId, currentTemp, roomTwin);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("LOGIC: Room {RoomId} is vacant. Turning AC Off.", roomId);
-                        await SafeSendPatchAsync(roomId, "ACUnit", "/mode", "Off", "hasDevice", null);
-                    }
+                    await UpsertComponentPropsAsync(
+                        roomId, "metrics",
+                        ("/currentTemperature", tempValue)
+                    );
+                    _logger.LogInformation("Updated metrics.currentTemperature={Temp} for {Room}", tempValue, roomId);
                 }
-            }
-            catch (JsonException jsonEx)
-            {
-                _logger.LogError(jsonEx, "JSON Parsing error in LogicTrigger. Body: {Body}", messageBody);
-            }
-            catch (RequestFailedException adtEx)
-            {
-                _logger.LogError(adtEx, "ADT API error in LogicTrigger for Sensor {SensorId}. Status: {Status}", sensorId ?? "unknown", adtEx.Status);
-                if (adtEx.Status >= 500 || adtEx.Status == 429) { throw; }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error in LogicTrigger. Sensor: {SensorId}", sensorId ?? "unknown");
+                _logger.LogError(ex, "SensorUpdateLogicTrigger error. Body: {Body}", body);
                 throw;
             }
         }
 
-        private async Task HandleTemperatureChangeAsync(string roomId, double currentTemp, BasicDigitalTwin roomTwin)
+        private async Task<string> FindParentRoomAsync(string deviceTwinId)
         {
-            double targetTemp = 24.0;
+            const string roomBase = "dtmi:com:smartbuilding:Room;";
+            string query = $@"
+                SELECT room
+                FROM DIGITALTWINS room
+                WHERE room.$metadata.$model LIKE '{roomBase}%'
+                JOIN rel RELATED room.hasDevice
+                WHERE rel.$targetId = '{deviceTwinId}'
+            ";
 
-            if (roomTwin.Contents.TryGetValue("targetTemp", out var targetTempProp) &&
-                targetTempProp != null &&
-                targetTempProp is JsonElement tempElem &&
-                tempElem.ValueKind == JsonValueKind.Number)
-            {
-                targetTemp = tempElem.GetDouble();
-            }
+            await foreach (var twin in _adt.QueryAsync<BasicDigitalTwin>(query))
+                return twin.Id;
 
-            double delta = currentTemp - targetTemp;
-
-            if (Math.Abs(delta) <= TEMP_TOLERANCE)
-            {
-                _logger.LogInformation("LOGIC: Temp delta ({Delta}) for {RoomId} is within tolerance. No change.", Math.Round(delta, 2), roomId);
-                return;
-            }
-
-            if (delta > TEMP_TOLERANCE)
-            {
-                _logger.LogWarning("LOGIC: Room {RoomId} is HOT ({Temp}C vs Target {Target}C). Turning AC to 'Cool'.", roomId, currentTemp, targetTemp);
-
-                // SỬA 1: Gửi giá trị "cool" (viết thường) để khớp với DTDL Enum
-                // ĐÃ SỬA LỖI: "ACA001" -> "ACUnit"
-                await SafeSendPatchAsync(roomId, "ACUnit", "/mode", "cool", "hasDevice", null);
-
-                // SỬA 2: Gửi đến đường dẫn "/targetTemperature" (thay vì "/setpoint")
-                // ĐÃ SỬA LỖI: "ACA001" -> "ACUnit"
-                await SafeSendPatchAsync(roomId, "ACUnit", "/targetTemperature", targetTemp, "hasDevice", null);
-            }
-            else if (delta < -TEMP_TOLERANCE)
-            {
-                _logger.LogWarning("LOGIC: Room {RoomId} is COLD ({Temp}C vs Target {Target}C). Turning AC to 'Off'.", roomId, currentTemp, targetTemp);
-
-                // Gửi giá trị "fan" (hoặc "off" nếu bạn định nghĩa nó trong Enum)
-                // ĐÃ SỬA LỖI: "ACA001" -> "ACUnit"
-                await SafeSendPatchAsync(roomId, "ACUnit", "/mode", "fan", "hasDevice", null);
-            }
-        }
-
-        private async Task<string> FindParentRoomAsync(string sensorId)
-        {
-            string query = $"SELECT Room.$dtId FROM DIGITALTWINS Room JOIN Sensor RELATED Room.hasDevice WHERE Sensor.$dtId = '{sensorId}'";
-
-            await foreach (Page<JsonElement> resultPage in _adtClient.QueryAsync<JsonElement>(query).AsPages())
-            {
-                foreach (JsonElement twinData in resultPage.Values)
-                {
-                    if (twinData.TryGetProperty("$dtId", out JsonElement dtId))
-                    {
-                        return dtId.GetString()!;
-                    }
-                }
-            }
             return string.Empty;
         }
 
-        private async Task<string> FindRelatedTwinAsync(string sourceId, string relationshipName)
+        // ---- Helpers: Upsert từng property (Replace rồi fallback Add nếu 400) ----
+        private async Task UpsertComponentPropsAsync(string twinId, string component, params (string path, object value)[] ops)
         {
-            // Hàm này không có lỗi, nó dùng 'relationshipName' làm biến
-            string query = $"SELECT Target.$dtId FROM DIGITALTWINS Source JOIN Target RELATED Source.{relationshipName} WHERE Source.$dtId = '{sourceId}'";
-
-            await foreach (Page<JsonElement> resultPage in _adtClient.QueryAsync<JsonElement>(query).AsPages())
-            {
-                foreach (JsonElement twinData in resultPage.Values)
-                {
-                    if (twinData.TryGetProperty("$dtId", out JsonElement dtId))
-                    {
-                        return dtId.GetString()!;
-                    }
-                }
-            }
-            return string.Empty;
-        }
-
-        private async Task SafeSendPatchAsync(string targetTwinId, string? actuatorModelName, string propertyPath, object value, string? relationshipName = null, string? onlyIfModeIs = null)
-        {
-            string finalTwinId = targetTwinId;
-
-            if (relationshipName != null && actuatorModelName != null)
-            {
-                // SỬA LỖI TRUY VẤN: Đổi 'Room.controls' thành 'Room.{relationshipName}'
-                string query = $"SELECT Actuator.$dtId, Actuator FROM DIGITALTWINS Room JOIN Actuator RELATED Room.{relationshipName} WHERE Room.$dtId = '{targetTwinId}' AND IS_OF_MODEL(Actuator, 'dtmi:com:smartbuilding:{actuatorModelName};1')";
-
-                await foreach (Page<JsonElement> resultPage in _adtClient.QueryAsync<JsonElement>(query).AsPages())
-                {
-                    foreach (JsonElement twinData in resultPage.Values)
-                    {
-                        if (twinData.TryGetProperty("$dtId", out JsonElement dtId))
-                        {
-                            finalTwinId = dtId.GetString()!;
-
-                            if (onlyIfModeIs != null)
-                            {
-                                var actuatorTwin = twinData.GetProperty("Actuator");
-                                if (actuatorTwin.TryGetProperty("mode", out var modeProp) && modeProp.GetString() != onlyIfModeIs)
-                                {
-                                    _logger.LogInformation("Skipping command for {ActuatorId}: Mode is not '{Mode}'", finalTwinId, onlyIfModeIs);
-                                    continue;
-                                }
-                            }
-                            break;
-                        }
-                    }
-                    if (finalTwinId != targetTwinId) break;
-                }
-
-                if (finalTwinId == targetTwinId && actuatorModelName != null)
-                {
-                    _logger.LogError("Could not find actuator '{ModelName}' related to {TwinId} via '{RelName}'", actuatorModelName, targetTwinId, relationshipName);
-                    return;
-                }
-            }
-
-            try
+            foreach (var (path, value) in ops)
             {
                 var patch = new JsonPatchDocument();
-                patch.AppendReplace(propertyPath, value);
-                _logger.LogInformation("Sending 'Replace' command to {TwinId}: {Path} = {Value}", finalTwinId, propertyPath, value);
-                await _adtClient.UpdateDigitalTwinAsync(finalTwinId, patch);
-            }
-            catch (RequestFailedException ex) when (ex.Status == 400)
-            {
-                _logger.LogWarning("'Replace' failed for {TwinId} (trying 'Add')...", finalTwinId);
-                var addPatch = new JsonPatchDocument();
-                addPatch.AppendAdd(propertyPath, value);
-                await _adtClient.UpdateDigitalTwinAsync(finalTwinId, addPatch);
+                patch.AppendReplace(path, value);
+                try
+                {
+                    await _adt.UpdateComponentAsync(twinId, component, patch);
+                }
+                catch (RequestFailedException ex) when (ex.Status == 400)
+                {
+                    var add = new JsonPatchDocument();
+                    add.AppendAdd(path, value);
+                    await _adt.UpdateComponentAsync(twinId, component, add);
+                }
             }
         }
     }

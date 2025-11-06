@@ -1,202 +1,341 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
+using Azure;
 using Azure.DigitalTwins.Core;
 using Azure.Identity;
-using Azure; // QUAN TRỌNG: Cần cho JsonPatchDocument
-using System.Collections.Generic;
-using System.Text.Json;
-using System.Linq; // Cần cho logic thời gian
-using Azure.Messaging.ServiceBus;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Logging;
 
-namespace GreenTwinUpdater
+namespace GreenTwinUpdater.Function
 {
     public class ACControlSchedulePresenceV2
     {
         private readonly ILogger _logger;
-        private readonly DigitalTwinsClient _adtClient;
+        private readonly DigitalTwinsClient _adt;
 
         public ACControlSchedulePresenceV2(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<ACControlSchedulePresenceV2>();
-            var adtServiceUrl = Environment.GetEnvironmentVariable("ADT_SERVICE_URL") ?? throw new InvalidOperationException("ADT_SERVICE_URL not set");
-            _adtClient = new DigitalTwinsClient(new Uri(adtServiceUrl), new DefaultAzureCredential());
+
+            var adtUrl = Environment.GetEnvironmentVariable("ADT_SERVICE_URL");
+            if (string.IsNullOrWhiteSpace(adtUrl))
+                throw new InvalidOperationException("Missing ADT_SERVICE_URL.");
+
+            _adt = new DigitalTwinsClient(new Uri(adtUrl), new DefaultAzureCredential());
         }
 
         [Function("ACControlSchedulePresenceV2")]
-        public async Task Run([TimerTrigger("0 * * * * *")] TimerInfo myTimer)
+        public async Task RunAsync([TimerTrigger("0 * * * * *")] TimerInfo timer, FunctionContext ctx, CancellationToken ct = default)
         {
-            _logger.LogInformation($"ACControlSchedulePresenceV2 triggered at: {DateTime.UtcNow}");
+            var nowUtc = DateTimeOffset.UtcNow;
 
-            try // Thêm khối try...catch để bắt lỗi (ví dụ: lỗi xác thực)
+            // Mặc định Windows time zone; thử Linux/macOS
+            TimeZoneInfo tz;
+            try { tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"); }
+            catch { tz = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"); }
+
+            var nowLocal = TimeZoneInfo.ConvertTime(nowUtc, tz);
+            string weekdayToken = nowLocal.DayOfWeek switch
             {
-                await foreach (BasicDigitalTwin room in _adtClient.QueryAsync<BasicDigitalTwin>(
-                    "SELECT * FROM DIGITALTWINS WHERE IS_OF_MODEL('dtmi:com:smartbuilding:Room;2')"))
+                DayOfWeek.Monday => "MON",
+                DayOfWeek.Tuesday => "TUE",
+                DayOfWeek.Wednesday => "WED",
+                DayOfWeek.Thursday => "THU",
+                DayOfWeek.Friday => "FRI",
+                DayOfWeek.Saturday => "SAT",
+                DayOfWeek.Sunday => "SUN",
+                _ => "MON"
+            };
+
+            _logger.LogInformation("=== ACControlSchedulePresenceV2 @ {local}", nowLocal);
+
+            // 1) Truy vấn CHỈ lấy $dtId, hỗ trợ Room;3 (và giữ ;2, ;1 để tương thích)
+            string qRooms =
+                "SELECT t.$dtId AS twinId FROM DIGITALTWINS t " +
+                "WHERE IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;3') " +
+                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;2') " +
+                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;1')";
+
+            // 2) Duyệt kết quả dạng JsonElement, rút twinId rồi GetDigitalTwin
+            await foreach (var row in _adt.QueryAsync<System.Text.Json.JsonElement>(qRooms, ct))
+            {
+                try
                 {
-                    string roomId = room.Id;
-                    _logger.LogInformation($"--- Checking Room: {roomId} ---");
+                    if (!row.TryGetProperty("twinId", out var idProp)) continue;
+                    var twinId = idProp.GetString();
+                    if (string.IsNullOrWhiteSpace(twinId)) continue;
 
-                    string? acId = null;
-                    string? scheduleId = null;
-                    string? motionSensorId = null;
+                    var roomResp = await _adt.GetDigitalTwinAsync<BasicDigitalTwin>(twinId!, ct);
+                    var room = roomResp.Value;
 
-                    await foreach (BasicRelationship rel in _adtClient.GetRelationshipsAsync<BasicRelationship>(roomId))
-                    {
-                        if (rel.Name == "hasDevice")
-                        {
-                            // ĐÃ SỬA: Khớp với ID twin của bạn "ACA..."
-                            if (rel.TargetId.StartsWith("ACA")) acId = rel.TargetId;
-                            // ĐÃ SỬA: Khớp với ID twin của bạn "Motion..."
-                            if (rel.TargetId.StartsWith("Motion")) motionSensorId = rel.TargetId;
-                        }
-                        else if (rel.Name == "hasSchedule")
-                        {
-                            scheduleId = rel.TargetId;
-                        }
-                    }
-
-                    if (acId == null || scheduleId == null || motionSensorId == null)
-                    {
-                        _logger.LogWarning("Missing AC ({AcId}), schedule ({ScheduleId}), or motion sensor ({MotionSensorId}) for room {RoomId}. Skipping.", acId, scheduleId, motionSensorId, roomId);
-                        continue;
-                    }
-
-                    // ĐÃ SỬA: Lấy "policy" một cách an toàn (dùng TryGetValue)
-                    var policy = await _adtClient.GetComponentAsync<BasicDigitalTwin>(roomId, "policy");
-                    var policyContents = policy.Value.Contents;
-
-                    bool allowManualOverride = policyContents.TryGetValue("allowManualOverride", out var amo) && amo is JsonElement amoElem ? amoElem.GetBoolean() : false;
-                    bool overrideActive = policyContents.TryGetValue("overrideActive", out var oa) && oa is JsonElement oaElem ? oaElem.GetBoolean() : false;
-                    string overrideExpiresStr = policyContents.TryGetValue("overrideExpiresOn", out var oes) && oes is JsonElement oesElem ? oesElem.GetString() ?? string.Empty : string.Empty;
-                    bool scheduleEnabled = policyContents.TryGetValue("scheduleEnabled", out var se) && se is JsonElement seElem ? seElem.GetBoolean() : true;
-                    int presenceTimeoutMinutes = policyContents.TryGetValue("presenceTimeoutMinutes", out var ptm) && ptm is JsonElement ptmElem ? ptmElem.GetInt32() : 5;
-
-
-                    if (allowManualOverride && overrideActive && DateTime.TryParse(overrideExpiresStr, out DateTime overrideExpiresOn) && DateTime.UtcNow < overrideExpiresOn)
-                    {
-                        _logger.LogInformation("Override active. Skipping automatic control for room {RoomId}.", roomId);
-                        continue;
-                    }
-                    
-                    // --- BẮT ĐẦU LOGIC THỜI GIAN ĐÃ SỬA ---
-
-                    // 1. LẤY LOGIC LỊCH (SCHEDULE) - AN TOÀN
-                    var schedule = await _adtClient.GetDigitalTwinAsync<BasicDigitalTwin>(scheduleId);
-                    var scheduleContents = schedule.Value.Contents;
-
-                    bool isEnabled = scheduleContents.TryGetValue("isEnabled", out var ie) && ie is JsonElement ieElem ? ieElem.GetBoolean() : true;
-                    string startTimeStr = scheduleContents.TryGetValue("startTime", out var st) && st is JsonElement stElem ? stElem.GetString() ?? "00:00:00" : "00:00:00";
-                    string endTimeStr = scheduleContents.TryGetValue("endTime", out var et) && et is JsonElement etElem ? etElem.GetString() ?? "00:00:00" : "00:00:00";
-
-                    // Lấy ngày trong tuần TỪ CHUỖI ĐƠN (Enum DTDL v1)
-                    string scheduleDayStr = scheduleContents.TryGetValue("weekdays", out var wd) && wd is JsonElement wdElem
-                        ? wdElem.GetString() ?? string.Empty
-                        : string.Empty; // Giá trị sẽ là "MON", "TUE", v.v.
-
-
-                    // 2. LẤY TRẠNG THÁI CẢM BIẾN VÀ AC (AN TOÀN)
-                    var motionSensor = await _adtClient.GetDigitalTwinAsync<BasicDigitalTwin>(motionSensorId);
-                    bool motion = motionSensor.Value.Contents.TryGetValue("motion", out var m) && m is JsonElement mElem ? mElem.GetBoolean() : false;
-
-                    var ac = await _adtClient.GetDigitalTwinAsync<BasicDigitalTwin>(acId);
-                    bool powerState = ac.Value.Contents.TryGetValue("powerState", out var ps) && ps is JsonElement psElem ? psElem.GetBoolean() : false;
-
-
-                    // 3. LOGIC XỬ LÝ MÚI GIỜ VÀ THỜI GIAN
-                    TimeZoneInfo vietnamZone;
-                    try
-                    {
-                        // "SE Asia Standard Time" là ID chuẩn của Windows cho giờ +07 (Bangkok, Hanoi, Jakarta)
-                        vietnamZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-                    }
-                    catch (TimeZoneNotFoundException)
-                    {
-                        // Nếu chạy trên Linux, ID có thể khác
-                        vietnamZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
-                    }
-                    
-                    DateTime nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, vietnamZone);
-
-                    TimeOnly startTime = TimeOnly.Parse(startTimeStr);
-                    TimeOnly endTime = TimeOnly.Parse(endTimeStr);
-                    TimeOnly nowTime = TimeOnly.FromDateTime(nowLocal);
-
-                    _logger.LogInformation("--- Debug Info for Room {RoomId} ---", roomId);
-                    _logger.LogInformation("Current Local Time (+07): {NowLocal} (Day: {Day})", nowLocal, nowLocal.DayOfWeek);
-                    _logger.LogInformation("Schedule Day (from Enum): {Day}", scheduleDayStr);
-                    _logger.LogInformation("Checking Time: {StartTime} - {EndTime}", startTime, endTime);
-                    _logger.LogInformation("Motion: {Motion}, AC Power: {PowerState}", motion, powerState);
-
-                    // 4. KHỐI IF/ELSE LOGIC (QUAN TRỌNG)
-                    // Chuyển đổi chuỗi "MON" -> DayOfWeek.Monday
-                    DayOfWeek scheduleDayEnum;
-                    switch (scheduleDayStr.ToUpper())
-                    {
-                        case "MON": scheduleDayEnum = DayOfWeek.Monday; break;
-                        case "TUE": scheduleDayEnum = DayOfWeek.Tuesday; break;
-                        case "WED": scheduleDayEnum = DayOfWeek.Wednesday; break;
-                        case "THU": scheduleDayEnum = DayOfWeek.Thursday; break;
-                        case "FRI": scheduleDayEnum = DayOfWeek.Friday; break;
-                        case "SAT": scheduleDayEnum = DayOfWeek.Saturday; break;
-                        case "SUN": scheduleDayEnum = DayOfWeek.Sunday; break;
-                        default:
-                            scheduleDayEnum = (DayOfWeek)(-1); // Đặt giá trị không hợp lệ
-                            _logger.LogWarning("Invalid or missing 'weekdays' property: {DayStr}", scheduleDayStr);
-                            break;
-                    }
-
-                    bool isScheduleDay = (scheduleDayEnum == nowLocal.DayOfWeek);
-                    bool isScheduleTime = (nowTime >= startTime && nowTime <= endTime);
-
-                    if (scheduleEnabled && isEnabled && isScheduleDay && isScheduleTime)
-                    {
-                        _logger.LogInformation("Logic: Within schedule (Đang trong giờ làm việc).");
-                        if (motion && !powerState)
-                        {
-                            await UpdateACPowerState(acId, true);
-                            _logger.LogInformation("Turning ON AC for room: {RoomId}", roomId);
-                        }
-                        else if (!motion && powerState)
-                        {
-                            await UpdateACPowerState(acId, false);
-                            _logger.LogInformation("Turning OFF AC due to no motion in room: {RoomId}", roomId);
-                        }
-                    }
-                    else if (isScheduleDay && nowTime > endTime && powerState) // Chỉ tắt nếu HÔM NAY là ngày làm việc nhưng ĐÃ HẾT GIỜ
-                    {
-                        _logger.LogInformation("Logic: Outside schedule (End of day).");
-                        await UpdateACPowerState(acId, false);
-                        _logger.LogInformation("Turning OFF AC after end of schedule in room: {RoomId}", roomId);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Logic: Not a schedule day or outside schedule time. No action taken.");
-                    }
-                    // --- KẾT THÚC LOGIC THỜI GIAN ---
-
+                    _logger.LogInformation("--- Room: {id}", room.Id);
+                    await ProcessRoomAsync(room, nowUtc, nowLocal, tz, weekdayToken, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing a room row from query.");
                 }
             }
-            catch (Exception ex) // Bắt lỗi (ví dụ: lỗi xác thực hết hạn)
+
+
+            _logger.LogInformation("=== Done");
+        }
+
+        private async Task ProcessRoomAsync(
+            BasicDigitalTwin room,
+            DateTimeOffset nowUtc, DateTimeOffset nowLocal, TimeZoneInfo tz, string weekdayToken,
+            CancellationToken ct)
+        {
+            _logger.LogInformation("--- Room: {id}", room.Id);
+
+            // Đọc component policy & metrics (nằm trong Contents dạng JsonElement)
+            var policyComp = TryGetComponent(room, "policy");
+            var metricsComp = TryGetComponent(room, "metrics");
+
+            bool scheduleEnabled = policyComp.TryGetBool("scheduleEnabled");
+            bool allowManualOverride = policyComp.TryGetBool("allowManualOverride");
+            bool overrideActive = policyComp.TryGetBool("overrideActive");
+            var overrideExpiresOn = policyComp.TryGetDateTimeOffset("overrideExpiresOn");
+            int presenceTimeoutMinutes = policyComp.TryGetInt("presenceTimeoutMinutes") ?? 0;
+
+            var lastMotionUtc = metricsComp.TryGetDateTimeOffset("lastMotionUtc");
+
+            // Ưu tiên override
+            if (allowManualOverride && overrideActive && overrideExpiresOn.HasValue && nowUtc < overrideExpiresOn.Value)
             {
-                // Nếu có lỗi, nó sẽ được log ra đây thay vì crash
-                _logger.LogError(ex, "An error occurred while processing rooms. Error: {Message}", ex.Message);
+                _logger.LogInformation("Room {id}: manual override active until {exp}. Skip.", room.Id, overrideExpiresOn);
+                return;
+            }
+
+            // Tìm schedule active qua relationship hasSchedule
+            var activeSchedule = await FindActiveScheduleViaRelationsAsync(room.Id, weekdayToken, nowLocal, ct);
+
+            bool withinSchedule = scheduleEnabled && activeSchedule.within;
+            TimeSpan? grace = presenceTimeoutMinutes > 0 ? TimeSpan.FromMinutes(presenceTimeoutMinutes) : (TimeSpan?)null;
+
+            // motionRecent = có motion trong vòng presenceTimeoutMinutes qua metrics.lastMotionUtc
+            bool motionRecent = false;
+            if (lastMotionUtc.HasValue && grace.HasValue)
+            {
+                var lastMotionLocal = TimeZoneInfo.ConvertTime(lastMotionUtc.Value, tz);
+                motionRecent = (nowLocal - lastMotionLocal) < grace.Value;
+            }
+
+            bool shouldPowerOn = false;
+
+            if (withinSchedule)
+            {
+                // Grace đầu giờ: bật ngay cả khi chưa có motion
+                bool withinStartGrace = false;
+                if (grace.HasValue && activeSchedule.startLocal.HasValue)
+                {
+                    var s = activeSchedule.startLocal.Value;
+                    withinStartGrace = nowLocal >= s && (nowLocal - s) < grace.Value;
+                }
+
+                if (withinStartGrace)
+                    shouldPowerOn = true;
+                else
+                    shouldPowerOn = motionRecent; // qua grace → cần motion gần đây
+            }
+            else
+            {
+                shouldPowerOn = false;
+            }
+
+            // Lấy AC của phòng qua quan hệ hasDevice
+            var acTwins = await GetDevicesViaRelationsAsync(
+                room.Id,
+                new[] { "dtmi:com:smartbuilding:ACUnit;2", "dtmi:com:smartbuilding:ACUnit;1" },
+                ct);
+
+            foreach (var ac in acTwins)
+            {
+                bool currentPower = GetBool(ac.Contents, "powerState") ?? false;
+                if (currentPower != shouldPowerOn)
+                {
+                    _logger.LogInformation("Room {room} / AC {ac}: power {old} -> {nw}",
+                        room.Id, ac.Id, currentPower, shouldPowerOn);
+
+                    var patch = new JsonPatchDocument();
+                    patch.AppendReplace("/powerState", shouldPowerOn); // <= dùng AppendReplace (đúng SDK)
+
+                    try
+                    {
+                        await _adt.UpdateDigitalTwinAsync(ac.Id, patch, cancellationToken: ct);
+                    }
+                    catch (RequestFailedException ex) when (ex.Status == 412)
+                    {
+                        _logger.LogWarning("ETag conflict when patching {ac}: {msg}", ac.Id, ex.Message);
+                    }
+                }
             }
         }
 
-        private async Task UpdateACPowerState(string acId, bool state)
+        private async Task<(bool within, DateTimeOffset? startLocal, DateTimeOffset? endLocal)>
+            FindActiveScheduleViaRelationsAsync(string roomId, string weekdayToken, DateTimeOffset nowLocal, CancellationToken ct)
         {
-            try
+            // Đọc quan hệ hasSchedule
+            var active = (within: false, startLocal: (DateTimeOffset?)null, endLocal: (DateTimeOffset?)null);
+
+            await foreach (var rel in _adt.GetRelationshipsAsync<BasicRelationship>(roomId, "hasSchedule", ct))
             {
-                var updateOps = new JsonPatchDocument();
-                updateOps.AppendReplace("/powerState", state);
-                await _adtClient.UpdateDigitalTwinAsync(acId, updateOps);
-                _logger.LogInformation("Successfully updated powerState to {State} for AC {AcId}", state, acId);
+                var schedId = rel.TargetId;
+                try
+                {
+                    var resp = await _adt.GetDigitalTwinAsync<BasicDigitalTwin>(schedId, ct);
+                    var s = resp.Value;
+
+                    bool isEnabled = GetBool(s.Contents, "isEnabled") ?? false;
+                    if (!isEnabled) continue;
+
+                    string wd = GetString(s.Contents, "weekdays") ?? "";
+                    if (!string.Equals(wd, weekdayToken, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    // startTime / endTime là DTDL 'time' (chuỗi "HH:MM:SS")
+                    var startTs = GetTimeAsTimeSpan(s.Contents, "startTime");
+                    var endTs = GetTimeAsTimeSpan(s.Contents, "endTime");
+                    if (!startTs.HasValue || !endTs.HasValue) continue;
+
+                    var startLocal = new DateTimeOffset(
+                        nowLocal.Year, nowLocal.Month, nowLocal.Day,
+                        startTs.Value.Hours, startTs.Value.Minutes, startTs.Value.Seconds, nowLocal.Offset);
+
+                    var endLocal = new DateTimeOffset(
+                        nowLocal.Year, nowLocal.Month, nowLocal.Day,
+                        endTs.Value.Hours, endTs.Value.Minutes, endTs.Value.Seconds, nowLocal.Offset);
+
+                    bool within = nowLocal >= startLocal && nowLocal < endLocal;
+                    if (within)
+                        return (true, startLocal, endLocal);
+                }
+                catch { /* ignore schedule lỗi đơn lẻ */ }
             }
-            catch (Exception ex)
+
+            return active;
+        }
+
+        private async Task<List<BasicDigitalTwin>> GetDevicesViaRelationsAsync(
+            string roomId,
+            IEnumerable<string> modelIds,
+            CancellationToken ct)
+        {
+            var list = new List<BasicDigitalTwin>();
+
+            await foreach (var rel in _adt.GetRelationshipsAsync<BasicRelationship>(roomId, "hasDevice", ct))
             {
-                _logger.LogError(ex, "Failed to update AC {AcId}", acId);
+                var devId = rel.TargetId;
+                try
+                {
+                    var resp = await _adt.GetDigitalTwinAsync<BasicDigitalTwin>(devId, ct);
+                    var dev = resp.Value;
+
+                    // Lọc theo model
+                    string? model = dev.Metadata?.ModelId;
+                    if (model != null && modelIds.Contains(model))
+                        list.Add(dev);
+                }
+                catch { /* bỏ qua twin lỗi đơn lẻ */ }
             }
+
+            return list;
+        }
+
+        // ------------ Helpers: Component ------------
+        private static ComponentReader TryGetComponent(BasicDigitalTwin twin, string name)
+        {
+            if (twin.Contents != null &&
+                twin.Contents.TryGetValue(name, out var obj) &&
+                obj is JsonElement el && el.ValueKind == JsonValueKind.Object)
+            {
+                return new ComponentReader(el);
+            }
+            return new ComponentReader(null);
+        }
+
+        private readonly struct ComponentReader
+        {
+            private readonly JsonElement? _el;
+            public ComponentReader(JsonElement? el) { _el = el; }
+
+            public bool TryGetBool(string prop)
+            {
+                if (_el.HasValue && _el.Value.TryGetProperty(prop, out var v))
+                {
+                    if (v.ValueKind == JsonValueKind.True || v.ValueKind == JsonValueKind.False)
+                        return v.GetBoolean();
+                }
+                return false;
+            }
+
+            public int? TryGetInt(string prop)
+            {
+                if (_el.HasValue && _el.Value.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number)
+                    if (v.TryGetInt32(out var i)) return i;
+                return null;
+            }
+
+            public DateTimeOffset? TryGetDateTimeOffset(string prop)
+            {
+                if (_el.HasValue && _el.Value.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String)
+                {
+                    if (DateTimeOffset.TryParse(v.GetString(), out var dt)) return dt;
+                }
+                return null;
+            }
+        }
+
+        // ------------ Helpers: IDictionary<string, object> ------------
+        private static string? GetString(IDictionary<string, object>? dict, string key)
+        {
+            if (dict == null) return null;
+            if (!dict.TryGetValue(key, out var obj) || obj is null) return null;
+
+            if (obj is string s) return s;
+            if (obj is JsonElement el && el.ValueKind == JsonValueKind.String) return el.GetString();
+            return null;
+        }
+
+        private static bool? GetBool(IDictionary<string, object>? dict, string key)
+        {
+            if (dict == null) return null;
+            if (!dict.TryGetValue(key, out var obj) || obj is null) return null;
+
+            if (obj is bool b) return b;
+            if (obj is JsonElement el)
+            {
+                if (el.ValueKind == JsonValueKind.True || el.ValueKind == JsonValueKind.False)
+                    return el.GetBoolean();
+            }
+            return null;
+        }
+
+        private static int? GetInt(IDictionary<string, object>? dict, string key)
+        {
+            if (dict == null) return null;
+            if (!dict.TryGetValue(key, out var obj) || obj is null) return null;
+
+            if (obj is int i) return i;
+            if (obj is JsonElement el && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var ii)) return ii;
+            return null;
+        }
+
+        private static DateTimeOffset? GetDateTimeOffset(IDictionary<string, object>? dict, string key)
+        {
+            var s = GetString(dict, key);
+            if (s != null && DateTimeOffset.TryParse(s, out var dt)) return dt;
+            return null;
+        }
+
+        private static TimeSpan? GetTimeAsTimeSpan(IDictionary<string, object>? dict, string key)
+        {
+            var s = GetString(dict, key);
+            if (s != null && TimeSpan.TryParse(s, out var ts)) return ts;
+            return null;
         }
     }
 }
