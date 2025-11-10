@@ -68,6 +68,8 @@ namespace GreenTwinUpdater
                 DateTime lastMotionUtc = DateTime.UtcNow;
                 bool writeTemperature = false;
                 double tempValue = 0;
+                bool writeIlluminance = false;
+                double luxValue = 0;
 
                 foreach (var patch in patchParent.EnumerateArray())
                 {
@@ -95,6 +97,14 @@ namespace GreenTwinUpdater
                             tempValue = valEl.GetDouble();
                         }
                     }
+                    else if (path.Equals("/illuminance", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (valEl.ValueKind == JsonValueKind.Number)
+                        {
+                            writeIlluminance = true;
+                            luxValue = valEl.GetDouble();
+                        }
+                    }
                 }
 
                 if (writeLastMotion)
@@ -113,6 +123,15 @@ namespace GreenTwinUpdater
                         ("/currentTemperature", tempValue)
                     );
                     _logger.LogInformation("Updated metrics.currentTemperature={Temp} for {Room}", tempValue, roomId);
+                }
+                
+                if (writeIlluminance)
+                {
+                    await UpsertComponentPropsAsync(
+                        roomId, "metrics",
+                        ("/currentIlluminance", luxValue)
+                    );
+                    _logger.LogInformation("Updated metrics.currentIlluminance={Lux} for {Room}", luxValue, roomId);
                 }
             }
             catch (Exception ex)
