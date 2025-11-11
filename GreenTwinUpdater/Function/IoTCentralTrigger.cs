@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Azure;
 using Azure.DigitalTwins.Core;
-using Azure.Identity;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -16,32 +15,29 @@ namespace GreenTwinUpdater.Function
         private readonly ILogger _logger;
         private readonly DigitalTwinsClient _client;
 
-        // Khóa điều khiển cần CHẶN trên actuator (áp dụng cho mọi version)
+        // Vẫn giữ nguyên: Cho phép 'powerState' và 'brightness'
         private static readonly HashSet<string> BlockedActuatorProps = new(StringComparer.OrdinalIgnoreCase)
-        { "powerState", "mode", "fanSpeed", "brightness" };
+        {
+            // "powerState",
+            "mode",
+            "fanSpeed",
+            // "brightness"
+        };
 
-        // Whitelist keys cho từng loại SENSOR theo TÊN MODEL (không version)
-        // => Khi bạn tăng version ;2 ;3..., code vẫn hoạt động nếu tên property không đổi.
+        // Whitelist cho sensor theo model name
+        // QUAN TRỌNG: Nếu model của EdgeA001 của bạn (ví dụ 'EdgeDevice') CÓ thuộc tính bạn muốn patch,
+        // bạn phải thêm nó vào đây.
+        // Ví dụ: ["EdgeDevice"] = new(StringComparer.OrdinalIgnoreCase) { "someProperty" },
         private static readonly Dictionary<string, HashSet<string>> AllowedSensorPropsByModelName =
             new(StringComparer.OrdinalIgnoreCase)
             {
-                // TemperatureSensor;*  → cho phép "temperature"
                 ["TemperatureSensor"] = new(StringComparer.OrdinalIgnoreCase) { "temperature" },
-
-                // HumiditySensor;* → "currentHumidity"
-                ["HumiditySensor"]   = new(StringComparer.OrdinalIgnoreCase) { "currentHumidity" },
-
-                // LightSensor;* → "illuminance"
-                ["LightSensor"]      = new(StringComparer.OrdinalIgnoreCase) { "illuminance" },
-
-                // MotionSensor;* → "motion"
-                ["MotionSensor"]     = new(StringComparer.OrdinalIgnoreCase) { "motion" },
-
-                // EnergyMeter;* → "currentPowerW", "currentEnergyKWh"
-                ["EnergyMeter"]      = new(StringComparer.OrdinalIgnoreCase) { "currentPowerW", "currentEnergyKWh" },
+                ["HumiditySensor"] = new(StringComparer.OrdinalIgnoreCase) { "currentHumidity" },
+                ["LightSensor"] = new(StringComparer.OrdinalIgnoreCase) { "illuminance" },
+                ["MotionSensor"] = new(StringComparer.OrdinalIgnoreCase) { "motion" },
+                ["EnergyMeter"] = new(StringComparer.OrdinalIgnoreCase) { "currentPowerW", "currentEnergyKWh" },
             };
 
-        // Tập model tên (không version) coi là ACTUATOR
         private static readonly HashSet<string> ActuatorModelNames = new(StringComparer.OrdinalIgnoreCase)
         { "ACUnit", "LightSwitch" };
 
@@ -58,14 +54,15 @@ namespace GreenTwinUpdater.Function
         {
             string messageBody = "(unreadable)";
             string? twinId = null;
+            string modelName = "unknown"; // Dùng cho log lỗi
 
             try
             {
-                messageBody = message.Body?.ToString() ?? "";
+                messageBody = message.Body?.ToString() ?? string.Empty;
                 using var doc = JsonDocument.Parse(messageBody);
                 var root = doc.RootElement;
 
-                // 1) Lấy device/twin id
+                // 1 deviceId
                 if (!root.TryGetProperty("deviceId", out var deviceIdEl) ||
                     deviceIdEl.ValueKind != JsonValueKind.String ||
                     string.IsNullOrWhiteSpace(deviceIdEl.GetString()))
@@ -75,119 +72,161 @@ namespace GreenTwinUpdater.Function
                 }
                 twinId = deviceIdEl.GetString()!.Trim();
 
-                // 2) Lấy $model của twin và chuẩn hóa về TÊN MODEL (không version)
+                // 2️ Model
                 string? modelId = await TryGetModelIdAsync(twinId);
-                if (modelId == null)
+                if (modelId is null)
                 {
                     _logger.LogWarning("Skip msg {Seq}: twin '{Twin}' not found in ADT", message.SequenceNumber, twinId);
                     return;
                 }
-
-                string modelName = GetDtmiModelName(modelId); // ví dụ: "ACUnit", "TemperatureSensor"
+                modelName = GetDtmiModelName(modelId); // Gán modelName
                 bool isActuator = ActuatorModelNames.Contains(modelName);
 
-                // 3) Xác định messageType + payload cần đọc
-                string messageType = root.TryGetProperty("messageType", out var mtEl) && mtEl.ValueKind == JsonValueKind.String
+                // 3️ Chuẩn hóa messageType
+                string rawType = root.TryGetProperty("messageType", out var mtEl) && mtEl.ValueKind == JsonValueKind.String
                     ? mtEl.GetString()!
                     : InferMessageType(root);
+                var norm = NormalizeType(rawType);
 
+                var patch = new JsonPatchDocument();
+                int added = 0;
                 JsonElement dataObject;
-                if (messageType.Equals("telemetry", StringComparison.OrdinalIgnoreCase))
+
+                // Trường hợp 1: Telemetry (Dạng Object)
+                if (norm == NormalizedType.Telemetry)
                 {
                     if (!root.TryGetProperty("telemetry", out dataObject) || dataObject.ValueKind != JsonValueKind.Object)
                     {
                         _logger.LogWarning("Skip telemetry msg {Seq}: no 'telemetry' object", message.SequenceNumber);
                         return;
                     }
-                }
-                else if (messageType.Equals("propertyChange", StringComparison.OrdinalIgnoreCase)
-                      || messageType.Equals("cloudPropertyChange", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!root.TryGetProperty("properties", out dataObject) || dataObject.ValueKind != JsonValueKind.Object)
-                    {
-                        // Một số exporter nhét thẳng vào root → fallback
-                        dataObject = root;
-                    }
-                }
-                else
-                {
-                    // Fallback: tìm object đầu tiên
-                    if (!TryFindFirstObject(root, out dataObject))
-                    {
-                        _logger.LogWarning("Skip msg {Seq}: unknown payload shape", message.SequenceNumber);
-                        return;
-                    }
-                }
 
-                // 4) Lọc & patch
-                var patch = new JsonPatchDocument();
-                int added = 0;
-
-                foreach (var prop in dataObject.EnumerateObject())
-                {
-                    var name = prop.Name;
-
-                    // 4.a) Nếu là ACTUATOR → chặn keys điều khiển
-                    if (isActuator && BlockedActuatorProps.Contains(name))
+                    foreach (var prop in dataObject.EnumerateObject())
                     {
-                        _logger.LogDebug("Blocked actuator key '{Key}' for twin {Twin}", name, twinId);
-                        continue;
-                    }
+                        string name = prop.Name;
+                        if (isActuator) { continue; } // Bỏ qua reported của actuator
 
-                    // 4.b) Nếu là SENSOR → chỉ nhận keys trong whitelist theo TÊN MODEL
-                    if (!isActuator)
-                    {
-                        if (AllowedSensorPropsByModelName.TryGetValue(modelName, out var allowed) && !allowed.Contains(name))
+                        // Whitelist check
+                        if (AllowedSensorPropsByModelName.TryGetValue(modelName, out var allow) &&
+                            !allow.Contains(name))
                         {
                             _logger.LogDebug("Skip key '{Key}' for sensor model {Model}", name, modelName);
                             continue;
                         }
+                        if (!TryExtractValue(prop.Value, out var value) || value is null) continue;
+                        patch.AppendReplace($"/{name}", value);
+                        added++;
                     }
-
-                    // 4.c) Chuẩn hóa value (Number/String/Bool). Bỏ qua kiểu khác.
-                    object? value = prop.Value.ValueKind switch
+                }
+                // Trường hợp 2: Reported (Dạng Object)
+                else if (norm == NormalizedType.PropReported &&
+                         root.TryGetProperty("properties", out dataObject) &&
+                         dataObject.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in dataObject.EnumerateObject())
                     {
-                        JsonValueKind.Number => TryGetNumber(prop.Value),
-                        JsonValueKind.String => prop.Value.GetString(),
-                        JsonValueKind.True => true,
-                        JsonValueKind.False => false,
-                        _ => null
-                    };
-                    if (value is null) continue;
+                        string name = prop.Name;
+                        if (isActuator) { continue; } // Bỏ qua reported của actuator
 
-                    patch.AppendReplace($"/{name}", value);
-                    added++;
+                        // Whitelist check
+                        if (AllowedSensorPropsByModelName.TryGetValue(modelName, out var allow) &&
+                            !allow.Contains(name))
+                        {
+                            _logger.LogDebug("Skip key '{Key}' for sensor model {Model}", name, modelName);
+                            continue;
+                        }
+                        if (!TryExtractValue(prop.Value, out var value) || value is null) continue;
+                        patch.AppendReplace($"/{name}", value);
+                        added++;
+                    }
+                }
+                // Trường hợp 3: Desired/Cloud HOẶC Reported (Dạng Array)
+                else if ((norm == NormalizedType.PropDesired || norm == NormalizedType.PropReported) &&
+                         root.TryGetProperty("properties", out var propsArr) && propsArr.ValueKind == JsonValueKind.Array)
+                {
+                    bool isDesiredSide = (norm == NormalizedType.PropDesired);
+
+                    foreach (var item in propsArr.EnumerateArray())
+                    {
+                        if (item.ValueKind != JsonValueKind.Object) continue;
+                        if (!item.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String) continue;
+                        if (!item.TryGetProperty("value", out var valEl)) continue;
+
+                        string name = nameEl.GetString()!;
+
+                        // *** BẢN SỬA LỖI CHO EdgeA001: Thêm Whitelist check ***
+                        if (!isActuator) // Nếu là Sensor (hoặc Edge)
+                        {
+                            // Nếu là 'desired' thì bỏ qua
+                            if (isDesiredSide) continue;
+
+                            // Nếu là 'reported' thì kiểm tra whitelist
+                            if (!AllowedSensorPropsByModelName.TryGetValue(modelName, out var allow) ||
+                                !allow.Contains(name))
+                            {
+                                _logger.LogDebug("Skip key '{Key}' (from Array) for sensor model {Model}", name, modelName);
+                                continue; // Bỏ qua (ví dụ: ipAddress, firmwareVersion)
+                            }
+                        }
+                        // *** HẾT BẢN SỬA ***
+
+                        // Logic chặn Actuator (Chỉ chặn nếu là Desired)
+                        if (isActuator && isDesiredSide && BlockedActuatorProps.Contains(name))
+                        {
+                            _logger.LogDebug("Blocked actuator key '{Key}' (desired/cloud) for {Twin}", name, twinId);
+                            continue;
+                        }
+
+                        if (!TryExtractValue(valEl, out var value) || value is null) continue;
+
+                        string adtPath = $"/{name}";
+                        patch.AppendReplace(adtPath, value);
+                        added++;
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Skip msg {Seq}: Cannot locate payload object or array (type={Type})",
+                        message.SequenceNumber, rawType);
+                    return;
                 }
 
+                // 6️ Gửi patch
                 if (added == 0)
                 {
-                    _logger.LogInformation("No applicable keys to patch for twin {Twin} (modelName {Model})", twinId, modelName);
+                    _logger.LogInformation("No applicable keys to patch for twin {Twin} (model {Model}, type {Type})",
+                        twinId, modelName, rawType);
                     return;
                 }
 
                 await _client.UpdateDigitalTwinAsync(twinId, patch);
-                _logger.LogInformation("Patched {Count} key(s) on twin {Twin} (modelName {Model}) from {Type}", added, twinId, modelName, messageType);
+                _logger.LogInformation("Patched {Count} key(s) on twin {Twin} (model {Model}) from {Type}",
+                    added, twinId, modelName, rawType);
             }
             catch (RequestFailedException adtEx)
             {
-                _logger.LogError(adtEx, "ADT API error (Status {Status}, Code {Code}) for twin {Twin}", adtEx.Status, adtEx.ErrorCode ?? "N/A", twinId ?? "N/A");
-                if (adtEx.Status == 429 || adtEx.Status >= 500) throw; // cho SB retry
+                _logger.LogError(adtEx,
+                    "ADT API error (Status {Status}, Code {Code}) for twin {Twin} (model {Model})",
+                    adtEx.Status, adtEx.ErrorCode ?? "N/A", twinId ?? "N/A", modelName); // Thêm modelName vào log lỗi
+                if (adtEx.Status == 429 || adtEx.Status >= 500) throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error on SB msg {Seq}, twin {Twin}. Body: {Body}", message.SequenceNumber, twinId ?? "N/A", messageBody);
+                _logger.LogError(ex,
+                    "Unexpected error on SB msg {Seq}, twin {Twin} (model {Model}). Body: {Body}",
+                    message.SequenceNumber, twinId ?? "N/A", modelName, messageBody);
                 throw;
             }
         }
 
-        // ===== Helpers =====
+        // ====================== Helpers (Không thay đổi) ======================
 
         private async Task<string?> TryGetModelIdAsync(string twinId)
         {
             try
             {
                 var twin = await _client.GetDigitalTwinAsync<BasicDigitalTwin>(twinId);
-                return twin?.Value?.Metadata?.ModelId; // vd: "dtmi:com:smartbuilding:ACUnit;2"
+                return twin?.Value?.Metadata?.ModelId;
             }
             catch (RequestFailedException ex) when (ex.Status == 404)
             {
@@ -195,50 +234,72 @@ namespace GreenTwinUpdater.Function
             }
         }
 
-        // Trả về tên model KHÔNG version từ DTMI
-        // "dtmi:com:smartbuilding:ACUnit;2" → "ACUnit"
-        // "dtmi:org:x:devices:TemperatureSensor;3" → "TemperatureSensor"
         private static string GetDtmiModelName(string modelId)
         {
-            // Bỏ phần ;version nếu có
             var semi = modelId.IndexOf(';');
-            var noVersion = semi >= 0 ? modelId.Substring(0, semi) : modelId;
-
-            // Lấy phần sau dấu ":" cuối cùng
+            var noVersion = semi >= 0 ? modelId[..semi] : modelId;
             var lastColon = noVersion.LastIndexOf(':');
-            if (lastColon >= 0 && lastColon < noVersion.Length - 1)
-                return noVersion.Substring(lastColon + 1);
-
-            // Fallback: nếu format lạ, trả về toàn bộ (ít gặp)
-            return noVersion;
-        }
-
-        private static object? TryGetNumber(JsonElement el)
-        {
-            if (el.TryGetInt64(out var i64)) return i64;
-            if (el.TryGetDouble(out var d)) return d;
-            return null;
+            return (lastColon >= 0 && lastColon < noVersion.Length - 1)
+                ? noVersion[(lastColon + 1)..]
+                : noVersion;
         }
 
         private static string InferMessageType(JsonElement root)
         {
-            if (root.TryGetProperty("telemetry", out var tel) && tel.ValueKind == JsonValueKind.Object) return "telemetry";
-            if (root.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object) return "propertyChange";
+            if (root.TryGetProperty("telemetry", out var t) && t.ValueKind == JsonValueKind.Object)
+                return "telemetry";
+            if (root.TryGetProperty("properties", out var p) && (p.ValueKind == JsonValueKind.Object || p.ValueKind == JsonValueKind.Array))
+                return "propertyChange";
             return "unknown";
         }
 
-        private static bool TryFindFirstObject(JsonElement root, out JsonElement obj)
+        private enum NormalizedType { Unknown, Telemetry, PropReported, PropDesired }
+
+        private static NormalizedType NormalizeType(string raw)
         {
-            foreach (var p in root.EnumerateObject())
+            if (string.IsNullOrWhiteSpace(raw)) return NormalizedType.Unknown;
+            var s = raw.Trim().ToLowerInvariant();
+
+            if (s == "telemetry" || s.EndsWith(":telemetry"))
+                return NormalizedType.Telemetry;
+
+            // Kiểm tra "reported" trước "desired"
+            if (s.Contains("reported") && s.Contains("property"))
+                return NormalizedType.PropReported;
+            if (s == "property" || s == "devicepropertiesreported" || s == "devicepropertyreportedchange")
+                return NormalizedType.PropReported;
+
+            // Kiểm tra "desired" sau
+            if (s.Contains("desired") && s.Contains("property"))
+                return NormalizedType.PropDesired;
+            if (s.Contains("cloudproperty") || s == "devicepropertydesiredchange")
+                return NormalizedType.PropDesired;
+
+            return NormalizedType.Unknown;
+        }
+
+        private static bool TryExtractValue(JsonElement el, out object? value)
+        {
+            value = null;
+            switch (el.ValueKind)
             {
-                if (p.Value.ValueKind == JsonValueKind.Object)
-                {
-                    obj = p.Value;
-                    return true;
-                }
+                case JsonValueKind.True: value = true; return true;
+                case JsonValueKind.False: value = false; return true;
+                case JsonValueKind.String: value = el.GetString(); return true;
+                case JsonValueKind.Number:
+                    if (el.TryGetInt64(out var i64)) { value = i64; return true; }
+                    if (el.TryGetDouble(out var d)) { value = d; return true; }
+                    return false;
+                case JsonValueKind.Object:
+                    if (el.TryGetProperty("reported", out var rep) && rep.ValueKind == JsonValueKind.Object &&
+                        rep.TryGetProperty("value", out var repVal) && TryExtractValue(repVal, out value)) return true;
+                    if (el.TryGetProperty("desired", out var des) && des.ValueKind == JsonValueKind.Object &&
+                        des.TryGetProperty("value", out var desVal) && TryExtractValue(desVal, out value)) return true;
+                    if (el.TryGetProperty("value", out var v) && TryExtractValue(v, out value)) return true;
+                    return false;
+                default:
+                    return false;
             }
-            obj = default;
-            return false;
         }
     }
 }
