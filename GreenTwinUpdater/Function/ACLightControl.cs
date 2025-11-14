@@ -31,7 +31,7 @@ namespace GreenTwinUpdater.Function
 
         // Model IDs
         private static readonly string[] AcUnitModelIds =
-            { "dtmi:com:smartbuilding:ACUnit;2", "dtmi:com:smartbuilding:ACUnit;1" };
+            { "dtmi:com:smartbuilding:ACUnit;3", "dtmi:com:smartbuilding:ACUnit;2" };
         private static readonly string[] LightSwitchModelIds =
             { "dtmi:com:smartbuilding:LightSwitch;1" };
 

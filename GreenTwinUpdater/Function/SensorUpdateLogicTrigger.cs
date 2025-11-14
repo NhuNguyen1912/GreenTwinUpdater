@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Azure;
@@ -26,37 +27,42 @@ namespace GreenTwinUpdater
             ServiceBusReceivedMessage message)
         {
             string body = "(unparsed)";
+
             try
             {
                 body = message.Body.ToString();
                 using var doc = JsonDocument.Parse(body);
                 var root = doc.RootElement;
 
+                // 1) Lấy block data (Event Grid style)
                 var data = root.TryGetProperty("data", out var dataEl) ? dataEl : root;
 
-                JsonElement patchParent;
-                if (data.TryGetProperty("data", out var inner) && inner.TryGetProperty("patch", out var p1))
-                    patchParent = p1;
-                else if (data.TryGetProperty("patch", out var p2))
-                    patchParent = p2;
-                else
+                // 2) Lấy mảng patch (data.data.patch hoặc data.patch)
+                if (!TryGetPatchArray(data, out var patchArray))
                 {
                     _logger.LogDebug("No patch array in event. Body: {Body}", body);
                     return;
                 }
 
-                if (patchParent.ValueKind != JsonValueKind.Array || patchParent.GetArrayLength() == 0)
+                if (patchArray.ValueKind != JsonValueKind.Array || patchArray.GetArrayLength() == 0)
+                {
+                    _logger.LogDebug("Empty patch array. Body: {Body}", body);
                     return;
+                }
 
-                if (!root.TryGetProperty("subject", out var subjectEl) || subjectEl.ValueKind != JsonValueKind.String)
+                // 3) Lấy sensor twin id từ subject
+                if (!root.TryGetProperty("subject", out var subjectEl) ||
+                    subjectEl.ValueKind != JsonValueKind.String)
                 {
                     _logger.LogDebug("Missing subject (sensor twin id). Body: {Body}", body);
                     return;
                 }
-                string sensorId = subjectEl.GetString()!;
-                _logger.LogInformation("Event from sensor {Sensor}", sensorId);
 
-                // Tìm Room cha qua hasDevice (version-agnostic)
+                string sensorId = subjectEl.GetString()!.Trim();
+                _logger.LogInformation("Event from sensor Test 2 '{Sensor}' (Length={Length})", sensorId, sensorId.Length);
+
+
+                // 4) Tìm Room cha qua quan hệ hasDevice (Room;* => version-agnostic)
                 string roomId = await FindParentRoomAsync(sensorId);
                 if (string.IsNullOrEmpty(roomId))
                 {
@@ -64,36 +70,43 @@ namespace GreenTwinUpdater
                     return;
                 }
 
-                bool writeLastMotion = false;
-                DateTime lastMotionUtc = DateTime.UtcNow;
-                bool writeTemperature = false;
+                // 5) Dò patch để xem có cập nhật gì liên quan
+                bool shouldUpdateLastMotion = false;
+                bool shouldUpdateTemp = false;
+                bool shouldUpdateLux = false;
+
                 double tempValue = 0;
-                bool writeIlluminance = false;
                 double luxValue = 0;
 
-                foreach (var patch in patchParent.EnumerateArray())
+                foreach (var patch in patchArray.EnumerateArray())
                 {
                     if (!patch.TryGetProperty("op", out var opEl) ||
                         !patch.TryGetProperty("path", out var pathEl) ||
                         !patch.TryGetProperty("value", out var valEl))
+                    {
                         continue;
+                    }
 
                     var op = opEl.GetString();
-                    if (op is not ("add" or "replace")) continue;
+                    if (op is not ("add" or "replace"))
+                        continue;
 
-                    var path = pathEl.GetString() ?? "";
+                    var path = pathEl.GetString() ?? string.Empty;
+
+                    // Chuẩn hoá so sánh path
                     if (path.Equals("/motion", StringComparison.OrdinalIgnoreCase))
                     {
+                        // Chỉ khi motion = true mới cập nhật lastMotionUtc
                         if (valEl.ValueKind == JsonValueKind.True)
                         {
-                            writeLastMotion = true; // chỉ khi motion=true
+                            shouldUpdateLastMotion = true;
                         }
                     }
                     else if (path.Equals("/temperature", StringComparison.OrdinalIgnoreCase))
                     {
                         if (valEl.ValueKind == JsonValueKind.Number)
                         {
-                            writeTemperature = true;
+                            shouldUpdateTemp = true;
                             tempValue = valEl.GetDouble();
                         }
                     }
@@ -101,38 +114,46 @@ namespace GreenTwinUpdater
                     {
                         if (valEl.ValueKind == JsonValueKind.Number)
                         {
-                            writeIlluminance = true;
+                            shouldUpdateLux = true;
                             luxValue = valEl.GetDouble();
                         }
                     }
                 }
 
-                if (writeLastMotion)
+                if (!shouldUpdateLastMotion && !shouldUpdateTemp && !shouldUpdateLux)
                 {
-                    await UpsertComponentPropsAsync(
-                        roomId, "metrics",
-                        ("/lastMotionUtc", lastMotionUtc)
-                    );
-                    _logger.LogInformation("Updated metrics.lastMotionUtc for {Room}", roomId);
+                    _logger.LogInformation("No relevant patch operations for sensor {Sensor}", sensorId);
+                    return;
                 }
 
-                if (writeTemperature)
+                // 6) Build list property cần upsert vào Room.metrics
+                var ops = new List<(string path, object value)>();
+
+                if (shouldUpdateLastMotion)
                 {
-                    await UpsertComponentPropsAsync(
-                        roomId, "metrics",
-                        ("/currentTemperature", tempValue)
-                    );
-                    _logger.LogInformation("Updated metrics.currentTemperature={Temp} for {Room}", tempValue, roomId);
+                    ops.Add(("/lastMotionUtc", DateTime.UtcNow));
                 }
-                
-                if (writeIlluminance)
+
+                if (shouldUpdateTemp)
                 {
-                    await UpsertComponentPropsAsync(
-                        roomId, "metrics",
-                        ("/currentIlluminance", luxValue)
-                    );
-                    _logger.LogInformation("Updated metrics.currentIlluminance={Lux} for {Room}", luxValue, roomId);
+                    ops.Add(("/currentTemperature", tempValue));
                 }
+
+                if (shouldUpdateLux)
+                {
+                    ops.Add(("/currentIlluminance", luxValue));
+                }
+
+                // 7) Upsert vào component metrics
+                await UpsertComponentPropsAsync(roomId, "metrics", ops.ToArray());
+
+                _logger.LogInformation(
+                    "Updated metrics for Room {Room}. lastMotion={Motion}, currentTemperature={Temp}, currentIlluminance={Lux}",
+                    roomId,
+                    shouldUpdateLastMotion,
+                    shouldUpdateTemp ? tempValue : (double?)null,
+                    shouldUpdateLux ? luxValue : (double?)null
+                );
             }
             catch (Exception ex)
             {
@@ -141,30 +162,99 @@ namespace GreenTwinUpdater
             }
         }
 
+        // ----------------- Helpers -----------------
+
+        private static bool TryGetPatchArray(JsonElement data, out JsonElement patchArray)
+        {
+            // Kiểu event hiện tại: data.data.patch[] hoặc data.patch[]
+            if (data.TryGetProperty("data", out var inner) &&
+                inner.TryGetProperty("patch", out var p1))
+            {
+                patchArray = p1;
+                return true;
+            }
+
+            if (data.TryGetProperty("patch", out var p2))
+            {
+                patchArray = p2;
+                return true;
+            }
+
+            patchArray = default;
+            return false;
+        }
+
         private async Task<string> FindParentRoomAsync(string deviceTwinId)
         {
-            const string roomBase = "dtmi:com:smartbuilding:Room;";
-            string query = $@"
-                SELECT room
-                FROM DIGITALTWINS room
-                WHERE room.$metadata.$model LIKE '{roomBase}%'
-                JOIN rel RELATED room.hasDevice
-                WHERE rel.$targetId = '{deviceTwinId}'
-            ";
+            var cleanId = deviceTwinId.Trim();
 
-            await foreach (var twin in _adt.QueryAsync<BasicDigitalTwin>(query))
-                return twin.Id;
+            // Chỉ query ra đúng $dtId của room để tránh bug deserialize
+            string query =
+                "SELECT room.$dtId AS roomId " +
+                "FROM DIGITALTWINS room " +
+                "JOIN device RELATED room.hasDevice " +
+                $"WHERE device.$dtId = '{cleanId}'";
+
+            _logger.LogInformation(
+                "FindParentRoomAsync: looking for device '{DeviceId}' with query: {Query}",
+                cleanId,
+                query
+            );
+
+            try
+            {
+                await foreach (var item in _adt.QueryAsync<RoomIdResult>(query))
+                {
+                    if (!string.IsNullOrEmpty(item.roomId))
+                    {
+                        _logger.LogInformation(
+                            "FindParentRoomAsync: found Room {RoomId} for device {DeviceId}",
+                            item.roomId,
+                            cleanId
+                        );
+                        return item.roomId;
+                    }
+                }
+
+                _logger.LogWarning("FindParentRoomAsync: no Room found for device {DeviceId}", cleanId);
+            }
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "FindParentRoomAsync query failed for sensor {SensorId}. Query: {Query}",
+                    cleanId,
+                    query
+                );
+            }
 
             return string.Empty;
         }
 
-        // ---- Helpers: Upsert từng property (Replace rồi fallback Add nếu 400) ----
-        private async Task UpsertComponentPropsAsync(string twinId, string component, params (string path, object value)[] ops)
+
+        private class RoomIdResult
+        {
+            public string roomId { get; set; }
+        }
+
+
+
+
+        /// <summary>
+        /// Upsert từng property trong component:
+        /// - Try Replace
+        /// - Nếu 400 (property chưa tồn tại) thì Add
+        /// </summary>
+        private async Task UpsertComponentPropsAsync(
+            string twinId,
+            string component,
+            params (string path, object value)[] ops)
         {
             foreach (var (path, value) in ops)
             {
                 var patch = new JsonPatchDocument();
                 patch.AppendReplace(path, value);
+
                 try
                 {
                     await _adt.UpdateComponentAsync(twinId, component, patch);
