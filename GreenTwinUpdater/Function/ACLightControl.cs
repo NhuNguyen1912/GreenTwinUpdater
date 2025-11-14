@@ -17,6 +17,9 @@ namespace GreenTwinUpdater.Function
         private readonly ILogger _logger;
         private readonly DigitalTwinsClient _adt;
 
+        private readonly IoTCentralClient _iotc;
+
+
         // Hằng số cho AC
         private const double DeltaTempThreshold = 3.0;
         private const string ModeCool = "cool";
@@ -45,10 +48,15 @@ namespace GreenTwinUpdater.Function
                 throw new InvalidOperationException("Missing ADT_SERVICE_URL.");
 
             _adt = new DigitalTwinsClient(new Uri(adtUrl), new DefaultAzureCredential());
+
+            // Khởi tạo client IoT Central
+            _iotc = new IoTCentralClient();
         }
 
+
+
         [Function("ACLightControl")]
-        public async Task RunAsync([TimerTrigger("0 * * * * *")] TimerInfo timer, FunctionContext ctx, CancellationToken ct = default)
+        public async Task RunAsync([TimerTrigger("*/30 * * * * *")] TimerInfo timer, FunctionContext ctx, CancellationToken ct = default)
         {
             // --- Phần này giữ nguyên ---
             var nowUtc = DateTimeOffset.UtcNow;
@@ -216,6 +224,7 @@ namespace GreenTwinUpdater.Function
         /// </summary>
         private async Task ProcessRoomACAsync(CommonRoomState state, CancellationToken ct)
         {
+            // 1. Tính trạng thái mong muốn
             bool shouldPowerOn;
 
             if (state.IsWithinSchedule)
@@ -242,6 +251,9 @@ namespace GreenTwinUpdater.Function
                     desiredMode = ModeEco;
             }
 
+            double? desiredSetpoint = state.TargetTemperature; // để sync sang IoT Central
+
+            // 2. Lấy danh sách AC trong phòng
             var acTwins = await GetDevicesViaRelationsAsync(state.Room.Id, AcUnitModelIds, ct);
             if (acTwins.Count == 0) return;
 
@@ -265,11 +277,23 @@ namespace GreenTwinUpdater.Function
                         patch.AppendReplace("/mode", desiredMode);
                         needsPatch = true;
                     }
+
                     string? currentFan = GetString(ac.Contents, "fanSpeed");
                     if (!string.Equals(currentFan, desiredFanSpeed, StringComparison.OrdinalIgnoreCase))
                     {
                         patch.AppendReplace("/fanSpeed", desiredFanSpeed);
                         needsPatch = true;
+                    }
+
+                    // Nếu có target temperature thì cũng patch vào AC twin (nếu em có property này trong model)
+                    if (desiredSetpoint.HasValue)
+                    {
+                        double? currentSetpoint = GetDouble(ac.Contents, "setpointTemperature");
+                        if (!currentSetpoint.HasValue || Math.Abs(currentSetpoint.Value - desiredSetpoint.Value) > 0.01)
+                        {
+                            patch.AppendReplace("/setpointTemperature", desiredSetpoint.Value);
+                            needsPatch = true;
+                        }
                     }
                 }
 
@@ -277,8 +301,30 @@ namespace GreenTwinUpdater.Function
                 {
                     try
                     {
+                        // 3. Patch lên ADT
                         await _adt.UpdateDigitalTwinAsync(ac.Id, patch, cancellationToken: ct);
-                        _logger.LogInformation("Room {room} / AC {ac}: Patched state.", state.Room.Id, ac.Id);
+                        _logger.LogInformation("Room {room} / AC {ac}: Patched state in ADT.", state.Room.Id, ac.Id);
+
+                        // 4. Sync sang IoT Central
+                        try
+                        {
+                            await _iotc.UpdateAcAsync(
+                                deviceId: ac.Id,              // giả định ac.Id = deviceId IoT Central
+                                powerState: shouldPowerOn,
+                                mode: shouldPowerOn ? desiredMode : null,
+                                fanSpeed: shouldPowerOn ? desiredFanSpeed : null,
+                                setpointTemperature: desiredSetpoint
+                            );
+
+                            _logger.LogInformation(
+                                "Room {room} / AC {ac}: Synced to IoT Central (power={p}, mode={m}, fan={f}, setpoint={t})",
+                                state.Room.Id, ac.Id, shouldPowerOn, desiredMode, desiredFanSpeed, desiredSetpoint);
+                        }
+                        catch (Exception exIot)
+                        {
+                            _logger.LogError(exIot, "Room {room} / AC {ac}: Failed to sync to IoT Central",
+                                state.Room.Id, ac.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -287,6 +333,7 @@ namespace GreenTwinUpdater.Function
                 }
             }
         }
+
 
 
         // ==================================================================
@@ -384,13 +431,38 @@ namespace GreenTwinUpdater.Function
                 {
                     try
                     {
+                        // 1) Cập nhật ADT
                         await _adt.UpdateDigitalTwinAsync(light.Id, patch, cancellationToken: ct);
+
+                        // 2) Cập nhật IoT Central (deviceId = twinId)
+                        try
+                        {
+                            // Nếu đèn bật thì gửi cả brightness, nếu tắt chỉ cần powerState
+                            int? brightnessToSend = desiredPower ? desiredBrightness : (int?)null;
+
+                            await _iotc.UpdateLightAsync(
+                                deviceId: light.Id,
+                                powerState: desiredPower,
+                                brightness: brightnessToSend);
+
+                            _logger.LogInformation(
+                                "Synced Light {light} to IoT Central (power={p}, brightness={b})",
+                                light.Id, desiredPower, brightnessToSend?.ToString() ?? "null");
+                        }
+                        catch (Exception exIot)
+                        {
+                            _logger.LogError(exIot,
+                                "Failed to sync Light {light} to IoT Central", light.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to patch Light {light} for room {room}", light.Id, state.Room.Id);
+                        _logger.LogError(ex,
+                            "Failed to patch Light {light} for room {room}",
+                            light.Id, state.Room.Id);
                     }
                 }
+
             }
         }
 
