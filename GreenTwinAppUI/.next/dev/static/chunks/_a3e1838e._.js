@@ -576,20 +576,29 @@ if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelper
 // lib/api.ts
 // ---------- Types ----------
 __turbopack_context__.s([
+    "getAcState",
+    ()=>getAcState,
     "getDevicesForRoom",
     ()=>getDevicesForRoom,
+    "getLightState",
+    ()=>getLightState,
     "getRooms",
     ()=>getRooms,
     "getSchedules",
     ()=>getSchedules,
     "updateAcSettings",
-    ()=>updateAcSettings
+    ()=>updateAcSettings,
+    "updateLightSettings",
+    ()=>updateLightSettings
 ]);
 // ---------- Constants (API base & keys) ----------
 const BASE_URL = "https://greentwiniotcentraltrigger-ezgmgugyb9fkfwem.japaneast-01.azurewebsites.net/api";
 const ROOMS_KEY = "XcGh9Rjnkz-NiNrgK6_qD4_slZugmc38Qob2svJAcFEJAzFuoBUalg==";
 const DEVICES_KEY = "uKQLG3SulECzSU_jJPLsNBoVPG889Qy5IaaxNmiJ5G9QAzFuPH_SrQ==";
 const AC_CONTROL_KEY = "bQAT_PQdIK8_JdHjU6tb1XvNt6-NQ77MnXYtMztVqdCYAzFuGFUySQ=="; // key của ACManualControl
+const AC_STATE_KEY = "8d-Vxdj_SdNoek78nrbj3k8s1UWfbKXwt27XjEZxyp7PAzFucjwhVg==";
+const LIGHT_CONTROL_KEY = "s8nazlhbZ6i5h2WAj2FzPkj0p-H1NtkkrZLHT_h6RAKzAzFunXpung==";
+const LIGHT_STATE_KEY = "Mk8ouqhlOoqhCxYnIgxF3aVleuQ2TBujU-f-bpG_p1GDAzFuZq9lFA==";
 async function getRooms() {
     const res = await fetch(`${BASE_URL}/rooms?code=${ROOMS_KEY}`, {
         cache: "no-store"
@@ -642,6 +651,20 @@ async function getDevicesForRoom(roomId) {
     }
     return res.json();
 }
+async function getAcState(roomId, deviceId) {
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/ac-state?code=${AC_STATE_KEY}`, {
+        cache: "no-store"
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to load AC state", {
+            status: res.status,
+            body: text
+        });
+        throw new Error(text || "Failed to load AC state");
+    }
+    return res.json();
+}
 async function updateAcSettings(roomId, deviceId, payload) {
     const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/ac-control?code=${AC_CONTROL_KEY}`, {
         method: "POST",
@@ -651,11 +674,45 @@ async function updateAcSettings(roomId, deviceId, payload) {
         body: JSON.stringify(payload)
     });
     if (!res.ok) {
-        console.error("Failed to update AC", res.status, await res.text());
-        throw new Error("Failed to update AC");
+        const text = await res.text();
+        console.error("Failed to update AC detail", {
+            status: res.status,
+            body: text
+        });
+        throw new Error(text || "Failed to update AC");
     }
-    // Function trả về string (OK – override until ...), đọc text là đủ
-    return res.text().catch(()=>"");
+    return res.json();
+}
+async function getLightState(roomId, deviceId) {
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/light-state?code=${LIGHT_STATE_KEY}`, {
+        cache: "no-store"
+    });
+    if (!res.ok) {
+        console.error("Failed to load light state", res.status, await res.text());
+        throw new Error("Failed to load light state");
+    }
+    return res.json();
+}
+async function updateLightSettings(roomId, deviceId, payload) {
+    const res = await fetch(`${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices/${encodeURIComponent(deviceId)}/light-control?code=${LIGHT_CONTROL_KEY}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to update Light detail", {
+            url: res.url,
+            status: res.status,
+            statusText: res.statusText,
+            body: text
+        });
+        throw new Error(text || `Failed to update Light (${res.status})`);
+    }
+    // Function trả về object JSON (roomId, deviceId, powerState, brightness, override...)
+    return res.json();
 }
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
@@ -686,6 +743,9 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$re
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$wind$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Wind$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/wind.js [app-client] (ecmascript) <export default as Wind>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$minus$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Minus$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/minus.js [app-client] (ecmascript) <export default as Minus>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$plus$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Plus$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/plus.js [app-client] (ecmascript) <export default as Plus>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/clock.js [app-client] (ecmascript) <export default as Clock>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$user$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__User$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/user.js [app-client] (ecmascript) <export default as User>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$zap$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Zap$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/zap.js [app-client] (ecmascript) <export default as Zap>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/api.ts [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$user$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/user.ts [app-client] (ecmascript)");
 ;
@@ -697,364 +757,755 @@ var _s = __turbopack_context__.k.signature();
 ;
 function ACDetailModal({ device, roomId, onClose }) {
     _s();
-    const [powerState, setPowerState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.powerState ?? true);
-    const [mode, setMode] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.mode ?? "cool");
-    const [fanSpeed, setFanSpeed] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.fanSpeed ?? "auto");
-    const [temperature, setTemperature] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.targetTemperature ?? 24);
+    const deviceId = device.id;
+    // Data State
+    const [acState, setAcState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    // UI Local States (Optimistic UI)
+    const [localPower, setLocalPower] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.powerState ?? true);
+    const [localMode, setLocalMode] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.mode ?? "cool");
+    const [localFan, setLocalFan] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.fanSpeed ?? "auto");
+    const [localTemp, setLocalTemp] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.targetTemperature ?? 24);
+    // Override Duration State (Default 60 mins)
+    const [overrideDuration, setOverrideDuration] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(60);
     const [saving, setSaving] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    const [error, setError] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
-    const [success, setSuccess] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
-    async function handleApply() {
+    const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
+    const isSavingRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(false);
+    // Helper: Format End Time (e.g. 14:30)
+    const getEndTimeString = (minutes)=>{
+        const end = new Date();
+        end.setMinutes(end.getMinutes() + minutes);
+        return end.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+    // Helper: Format Duration (e.g. 1h 30m)
+    const formatDuration = (mins)=>{
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        if (h === 0) return `${m}m`;
+        if (m === 0) return `${h}h`;
+        return `${h}h ${m}m`;
+    };
+    const fetchData = async (isInitialLoad = false)=>{
+        if (isSavingRef.current && !isInitialLoad) return;
+        if (!roomId || !deviceId) return;
+        try {
+            const state = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getAcState"])(roomId, deviceId);
+            setAcState(state);
+            if (!isSavingRef.current || isInitialLoad) {
+                if (state.powerState !== undefined) setLocalPower(state.powerState);
+                if (state.mode) setLocalMode(state.mode);
+                if (state.fanSpeed) setLocalFan(state.fanSpeed);
+                if (typeof state.targetTemperature === 'number') {
+                    setLocalTemp(state.targetTemperature);
+                }
+            }
+        } catch (e) {
+            console.error("Poll error:", e);
+        } finally{
+            setLoading(false);
+        }
+    };
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "ACDetailModal.useEffect": ()=>{
+            isSavingRef.current = false;
+            fetchData(true);
+            const interval = setInterval({
+                "ACDetailModal.useEffect.interval": ()=>fetchData(false)
+            }["ACDetailModal.useEffect.interval"], 5000);
+            return ({
+                "ACDetailModal.useEffect": ()=>clearInterval(interval)
+            })["ACDetailModal.useEffect"];
+        }
+    }["ACDetailModal.useEffect"], [
+        roomId,
+        deviceId
+    ]);
+    const handleUpdate = (updates)=>{
+        if (updates.powerState !== undefined) setLocalPower(updates.powerState);
+        if (updates.mode) setLocalMode(updates.mode);
+        if (updates.fanSpeed) setLocalFan(updates.fanSpeed);
+        if (updates.targetTemperature) setLocalTemp(updates.targetTemperature);
+    };
+    async function onApplyChanges() {
         try {
             setSaving(true);
-            setError(null);
-            setSuccess(null);
-            await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["updateAcSettings"])(roomId, device.id, {
-                powerState,
-                mode,
-                fanSpeed,
-                targetTemperature: temperature,
-                user: __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$user$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CURRENT_USER"]
+            isSavingRef.current = true;
+            const updatedState = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["updateAcSettings"])(roomId, deviceId, {
+                powerState: localPower,
+                mode: localMode,
+                fanSpeed: localFan,
+                targetTemperature: localTemp,
+                user: __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$user$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CURRENT_USER"],
+                durationMinutes: overrideDuration
             });
-            setSuccess("Updated AC successfully");
+            setAcState(updatedState);
+            // Sync lại local state để UI đồng bộ
+            if (updatedState.powerState !== undefined) setLocalPower(updatedState.powerState);
+            if (updatedState.mode) setLocalMode(updatedState.mode);
+            if (updatedState.fanSpeed) setLocalFan(updatedState.fanSpeed);
+            if (typeof updatedState.targetTemperature === 'number') {
+                setLocalTemp(updatedState.targetTemperature);
+            }
         } catch (e) {
             console.error(e);
-            setError("Failed to update AC");
+            alert("Failed to update settings. Please try again.");
         } finally{
             setSaving(false);
+            isSavingRef.current = false;
         }
     }
+    const isOverride = acState?.overrideActive;
+    const currentTempDisplay = acState?.currentTemperature != null ? acState.currentTemperature.toFixed(1) : "--";
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-        className: "fixed inset-0 bg-black/30 z-50 flex items-end",
-        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: "w-full bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-300",
-            children: [
-                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10",
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "flex items-center gap-3",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center",
-                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$wind$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Wind$3e$__["Wind"], {
-                                        size: 24,
-                                        className: "text-blue-600"
-                                    }, void 0, false, {
-                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                        lineNumber: 58,
-                                        columnNumber: 15
-                                    }, this)
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 57,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
-                                            className: "text-xl font-bold text-gray-900",
-                                            children: (device.roomName || "Room") + " – " + (device.name || "AC")
-                                        }, void 0, false, {
-                                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 61,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                            className: "text-sm text-gray-600",
-                                            children: device.model || device.id
-                                        }, void 0, false, {
-                                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 64,
-                                            columnNumber: 15
-                                        }, this)
-                                    ]
-                                }, void 0, true, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 60,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 56,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: onClose,
-                            className: "p-2 hover:bg-gray-100 rounded-xl transition-colors",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__["X"], {
-                                size: 24,
-                                className: "text-gray-700"
-                            }, void 0, false, {
-                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                lineNumber: 70,
-                                columnNumber: 13
-                            }, this)
-                        }, void 0, false, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 69,
-                            columnNumber: 11
-                        }, this)
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                    lineNumber: 55,
-                    columnNumber: 9
-                }, this),
-                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "p-6 pb-20 space-y-5",
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "bg-white rounded-2xl p-6 border border-gray-100",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-center justify-between",
+        className: "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200",
+        children: [
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "absolute inset-0",
+                onClick: onClose
+            }, void 0, false, {
+                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                lineNumber: 125,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "bg-white px-6 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 z-10",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "flex items-center gap-3",
                                 children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "font-semibold text-gray-900",
-                                        children: "Power"
-                                    }, void 0, false, {
-                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                        lineNumber: 78,
-                                        columnNumber: 15
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                        onClick: ()=>setPowerState(!powerState),
-                                        className: `relative w-14 h-8 rounded-full transition-all ${powerState ? "bg-green-500" : "bg-gray-300"}`,
-                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: `absolute top-1 w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${powerState ? "translate-x-7" : "translate-x-1"}`
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: `w-10 h-10 rounded-full flex items-center justify-center transition-colors ${localPower ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`,
+                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$wind$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Wind$3e$__["Wind"], {
+                                            size: 20
                                         }, void 0, false, {
                                             fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 84,
-                                            columnNumber: 17
+                                            lineNumber: 133,
+                                            columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                        lineNumber: 79,
-                                        columnNumber: 15
+                                        lineNumber: 132,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                                                className: "text-lg font-bold text-gray-900 leading-none",
+                                                children: device.name || "AC Unit"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 136,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "text-xs text-gray-500 font-medium",
+                                                children: device.model || "Smart Air Conditioner"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 139,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 135,
+                                        columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                lineNumber: 77,
-                                columnNumber: 13
-                            }, this)
-                        }, void 0, false, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 76,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-8 border border-blue-100",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                    className: "font-semibold text-gray-900 mb-6 text-center",
-                                    children: "Target Temperature"
+                                lineNumber: 131,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                onClick: onClose,
+                                className: "p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors",
+                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__["X"], {
+                                    size: 20
                                 }, void 0, false, {
                                     fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 94,
+                                    lineNumber: 145,
                                     columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "flex items-center justify-center gap-6",
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                            onClick: ()=>setTemperature(Math.max(16, temperature - 1)),
-                                            disabled: !powerState,
-                                            className: "w-14 h-14 rounded-full bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xl transition-all shadow-sm flex items-center justify-center",
-                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$minus$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Minus$3e$__["Minus"], {
-                                                size: 20
-                                            }, void 0, false, {
-                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                                lineNumber: 103,
-                                                columnNumber: 17
-                                            }, this)
+                                }, this)
+                            }, void 0, false, {
+                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                lineNumber: 144,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                        lineNumber: 130,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "p-6 space-y-6 overflow-y-auto custom-scrollbar",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: `rounded-xl p-3 flex items-start gap-3 border ${isOverride ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`,
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: `mt-0.5 ${isOverride ? 'text-green-600' : 'text-gray-500'}`,
+                                        children: isOverride ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"], {
+                                            size: 16
                                         }, void 0, false, {
                                             fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 98,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "text-center",
-                                            children: [
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                                    className: "text-6xl font-bold text-gray-900",
-                                                    children: [
-                                                        temperature,
-                                                        "°"
-                                                    ]
-                                                }, void 0, true, {
-                                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                                    lineNumber: 106,
-                                                    columnNumber: 17
-                                                }, this),
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                                    className: "text-sm text-gray-600 mt-2",
-                                                    children: [
-                                                        "Current: ",
-                                                        device.currentTemperature ?? "--",
-                                                        "°C"
-                                                    ]
-                                                }, void 0, true, {
-                                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                                    lineNumber: 107,
-                                                    columnNumber: 17
-                                                }, this)
-                                            ]
-                                        }, void 0, true, {
-                                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 105,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                            onClick: ()=>setTemperature(Math.min(32, temperature + 1)),
-                                            disabled: !powerState,
-                                            className: "w-14 h-14 rounded-full bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xl transition-all shadow-sm flex items-center justify-center",
-                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$plus$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Plus$3e$__["Plus"], {
-                                                size: 20
-                                            }, void 0, false, {
-                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                                lineNumber: 116,
-                                                columnNumber: 17
-                                            }, this)
+                                            lineNumber: 154,
+                                            columnNumber: 29
+                                        }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$zap$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Zap$3e$__["Zap"], {
+                                            size: 16
                                         }, void 0, false, {
                                             fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 111,
+                                            lineNumber: 154,
+                                            columnNumber: 51
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 153,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex-1",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: `text-sm font-bold ${isOverride ? 'text-green-800' : 'text-gray-700'}`,
+                                                children: isOverride ? "Manual Override Active" : "Auto Schedule Mode"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 157,
+                                                columnNumber: 15
+                                            }, this),
+                                            isOverride ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "mt-1 text-xs text-green-700 space-y-0.5",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                        children: [
+                                                            "Ends at ",
+                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
+                                                                children: acState?.overrideExpiresOnLocalFormatted?.split(' ')[0]
+                                                            }, void 0, false, {
+                                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                                lineNumber: 163,
+                                                                columnNumber: 29
+                                                            }, this)
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 162,
+                                                        columnNumber: 19
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                        className: "flex items-center gap-1 opacity-90",
+                                                        children: [
+                                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$user$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__User$3e$__["User"], {
+                                                                size: 10
+                                                            }, void 0, false, {
+                                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                                lineNumber: 166,
+                                                                columnNumber: 21
+                                                            }, this),
+                                                            " By ",
+                                                            acState?.lastUpdatedBy || "User"
+                                                        ]
+                                                    }, void 0, true, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 165,
+                                                        columnNumber: 19
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 161,
+                                                columnNumber: 17
+                                            }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "text-xs text-gray-500 mt-0.5",
+                                                children: "System is running automatically."
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 170,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 156,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                lineNumber: 152,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "flex items-center justify-between bg-gray-50 rounded-2xl p-4 border border-gray-100",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        className: "font-bold text-gray-700 text-sm uppercase tracking-wider",
+                                        children: "Power"
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 177,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>handleUpdate({
+                                                powerState: !localPower
+                                            }),
+                                        disabled: saving,
+                                        className: `relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none ${localPower ? "bg-blue-500" : "bg-gray-300"}`,
+                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: `absolute top-1 left-1 bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${localPower ? "translate-x-6" : ""}`
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                            lineNumber: 183,
                                             columnNumber: 15
                                         }, this)
-                                    ]
-                                }, void 0, true, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 97,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 93,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "bg-white rounded-2xl p-6 border border-gray-100",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                    className: "font-semibold text-gray-900 mb-4",
-                                    children: "Mode"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 123,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "grid grid-cols-2 gap-3",
-                                    children: [
-                                        "cool",
-                                        "eco"
-                                    ].map((m)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                            onClick: ()=>setMode(m),
-                                            disabled: !powerState,
-                                            className: `py-4 px-4 rounded-xl font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${mode === m ? "bg-green-500 text-white shadow-md" : "bg-gray-50 text-gray-700 hover:bg-gray-100"}`,
-                                            children: m.charAt(0).toUpperCase() + m.slice(1)
-                                        }, m, false, {
-                                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 126,
-                                            columnNumber: 17
-                                        }, this))
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 124,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 122,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "bg-white rounded-2xl p-6 border border-gray-100",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                    className: "font-semibold text-gray-900 mb-4",
-                                    children: "Fan Speed"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 143,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "grid grid-cols-4 gap-2",
-                                    children: [
-                                        "auto",
-                                        "low",
-                                        "medium",
-                                        "high"
-                                    ].map((speed)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                            onClick: ()=>setFanSpeed(speed),
-                                            disabled: !powerState,
-                                            className: `py-3 px-2 rounded-xl font-medium text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${fanSpeed === speed ? "bg-green-500 text-white shadow-md" : "bg-gray-50 text-gray-700 hover:bg-gray-100"}`,
-                                            children: speed === "medium" ? "Med" : speed.charAt(0).toUpperCase() + speed.slice(1)
-                                        }, speed, false, {
-                                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                            lineNumber: 146,
-                                            columnNumber: 17
-                                        }, this))
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                                    lineNumber: 144,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 142,
-                            columnNumber: 11
-                        }, this),
-                        error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                            className: "text-xs text-red-600 font-medium",
-                            children: error
-                        }, void 0, false, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 167,
-                            columnNumber: 13
-                        }, this),
-                        success && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                            className: "text-xs text-green-600 font-medium",
-                            children: success
-                        }, void 0, false, {
-                            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 170,
-                            columnNumber: 13
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: handleApply,
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 178,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                lineNumber: 176,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: `rounded-3xl p-6 text-center transition-all duration-300 ${localPower ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-200" : "bg-gray-50 border-2 border-gray-100 text-gray-400"}`,
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                        className: `text-xs font-bold uppercase tracking-widest mb-4 ${localPower ? 'opacity-80' : 'text-gray-500'}`,
+                                        children: "Target Temperature"
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 193,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex items-center justify-center gap-6",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                onClick: ()=>handleUpdate({
+                                                        targetTemperature: Math.max(16, localTemp - 1)
+                                                    }),
+                                                disabled: !localPower || saving,
+                                                className: `w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${localPower ? "bg-white/20 hover:bg-white/30" : "bg-gray-200 text-gray-500"}`,
+                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$minus$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Minus$3e$__["Minus"], {
+                                                    size: 24
+                                                }, void 0, false, {
+                                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                    lineNumber: 203,
+                                                    columnNumber: 17
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 196,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex items-start",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        className: "text-7xl font-bold tracking-tighter leading-none",
+                                                        children: localTemp
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 207,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        className: "text-3xl font-light mt-1",
+                                                        children: "°"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 208,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 206,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                onClick: ()=>handleUpdate({
+                                                        targetTemperature: Math.min(30, localTemp + 1)
+                                                    }),
+                                                disabled: !localPower || saving,
+                                                className: `w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${localPower ? "bg-white/20 hover:bg-white/30" : "bg-gray-200 text-gray-500"}`,
+                                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$plus$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Plus$3e$__["Plus"], {
+                                                    size: 24
+                                                }, void 0, false, {
+                                                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                    lineNumber: 218,
+                                                    columnNumber: 17
+                                                }, this)
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 211,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 195,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: `mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${localPower ? "bg-black/10 backdrop-blur-md" : "bg-gray-200 text-gray-500"}`,
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$wind$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Wind$3e$__["Wind"], {
+                                                size: 12
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 225,
+                                                columnNumber: 15
+                                            }, this),
+                                            " Room Temp: ",
+                                            currentTempDisplay,
+                                            "°C"
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 222,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                lineNumber: 188,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "space-y-4",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "text-xs font-bold text-gray-400 uppercase mb-2",
+                                                children: "Mode"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 233,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex bg-gray-100 p-1 rounded-xl",
+                                                children: [
+                                                    "cool",
+                                                    "eco"
+                                                ].map((m)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        onClick: ()=>handleUpdate({
+                                                                mode: m
+                                                            }),
+                                                        disabled: !localPower,
+                                                        className: `flex-1 py-2 rounded-lg text-sm font-bold transition-all ${localMode === m ? "bg-white text-blue-600 shadow-sm border border-gray-100" : "text-gray-500 hover:text-gray-700"} disabled:opacity-50`,
+                                                        children: m === "cool" ? "Cool" : "Eco"
+                                                    }, m, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 236,
+                                                        columnNumber: 19
+                                                    }, this))
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 234,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 232,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "text-xs font-bold text-gray-400 uppercase mb-2",
+                                                children: "Fan Speed"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 254,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "grid grid-cols-4 gap-2",
+                                                children: [
+                                                    "auto",
+                                                    "low",
+                                                    "medium",
+                                                    "high"
+                                                ].map((s)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                                        onClick: ()=>handleUpdate({
+                                                                fanSpeed: s
+                                                            }),
+                                                        disabled: !localPower,
+                                                        className: `py-2 rounded-lg text-xs font-bold uppercase border transition-all ${localFan === s ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-gray-100 text-gray-500 hover:border-gray-200"} disabled:opacity-50`,
+                                                        children: s === "medium" ? "Med" : s
+                                                    }, s, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 257,
+                                                        columnNumber: 19
+                                                    }, this))
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 255,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 253,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                lineNumber: 230,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "bg-gray-50 rounded-2xl p-5 border border-gray-100",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex items-center justify-between mb-4",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex items-center gap-2 text-gray-700",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"], {
+                                                        size: 16,
+                                                        className: "text-blue-600"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 278,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        className: "font-bold text-sm",
+                                                        children: "Hold Settings For"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 279,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 277,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded text-sm min-w-[60px] text-center",
+                                                children: formatDuration(overrideDuration)
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 281,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 276,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "relative h-6 flex items-center",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                type: "range",
+                                                min: "1",
+                                                max: "240",
+                                                step: "1",
+                                                value: overrideDuration,
+                                                onChange: (e)=>setOverrideDuration(Number(e.target.value)),
+                                                className: "w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 z-10"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 287,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "absolute w-full flex justify-between px-1 pointer-events-none",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 1 ? 'bg-blue-600' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 299,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 60 ? 'bg-blue-600' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 300,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 120 ? 'bg-blue-600' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 301,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 180 ? 'bg-blue-600' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 302,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 240 ? 'bg-blue-600' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                        lineNumber: 303,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 298,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 286,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex justify-between text-xs text-gray-400 mt-2 font-medium",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                children: "1m"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 308,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "pl-2",
+                                                children: "1h"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 309,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "pl-1",
+                                                children: "2h"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 310,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "pl-1",
+                                                children: "3h"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 311,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                children: "4h"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 312,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 307,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                        className: "text-xs text-center text-gray-500 mt-3 border-t border-gray-200 pt-3",
+                                        children: [
+                                            "Will return to schedule at ",
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "font-bold text-gray-800",
+                                                children: getEndTimeString(overrideDuration)
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                                lineNumber: 316,
+                                                columnNumber: 42
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 315,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                lineNumber: 275,
+                                columnNumber: 11
+                            }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                        lineNumber: 149,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "p-5 border-t border-gray-100 bg-white sticky bottom-0 z-10",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            onClick: onApplyChanges,
                             disabled: saving,
-                            className: "w-full py-3 rounded-2xl bg-green-600 text-white font-semibold mt-2 disabled:opacity-60 disabled:cursor-not-allowed",
-                            children: saving ? "Applying..." : "Apply changes"
+                            className: "w-full py-3.5 rounded-xl bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold text-base shadow-lg shadow-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
+                            children: saving ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 331,
+                                        columnNumber: 17
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        children: "Applying..."
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                                        lineNumber: 332,
+                                        columnNumber: 17
+                                    }, this)
+                                ]
+                            }, void 0, true) : "Apply Settings"
                         }, void 0, false, {
                             fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                            lineNumber: 173,
+                            lineNumber: 324,
                             columnNumber: 11
                         }, this)
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-                    lineNumber: 74,
-                    columnNumber: 9
-                }, this)
-            ]
-        }, void 0, true, {
-            fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-            lineNumber: 54,
-            columnNumber: 7
-        }, this)
-    }, void 0, false, {
+                    }, void 0, false, {
+                        fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                        lineNumber: 323,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "[project]/components/device-details/ac-detail-modal.tsx",
+                lineNumber: 127,
+                columnNumber: 7
+            }, this)
+        ]
+    }, void 0, true, {
         fileName: "[project]/components/device-details/ac-detail-modal.tsx",
-        lineNumber: 53,
+        lineNumber: 124,
         columnNumber: 5
     }, this);
 }
-_s(ACDetailModal, "6Z+LIm2RgulcuBqygADJSJBeFCM=");
+_s(ACDetailModal, "HppKffDJKFRc/rd1EeMA9etdlM4=");
 _c = ACDetailModal;
 var _c;
 __turbopack_context__.k.register(_c, "ACDetailModal");
@@ -1073,357 +1524,542 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/x.js [app-client] (ecmascript) <export default as X>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$lightbulb$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Lightbulb$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/lightbulb.js [app-client] (ecmascript) <export default as Lightbulb>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/clock.js [app-client] (ecmascript) <export default as Clock>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$zap$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Zap$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/zap.js [app-client] (ecmascript) <export default as Zap>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$sun$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Sun$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/sun.js [app-client] (ecmascript) <export default as Sun>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/api.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$user$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/user.ts [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
-'use client';
+"use client";
+;
+;
 ;
 ;
 function LightDetailModal({ device, onClose }) {
     _s();
-    const [powerState, setPowerState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.powerState);
-    const [brightness, setBrightness] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.brightness);
+    const roomId = device.roomId; // Lấy roomId từ prop device
+    const deviceId = device.id;
+    const [lightState, setLightState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
+    // Optimistic UI States
+    const [localPower, setLocalPower] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.powerState ?? false);
+    const [localBrightness, setLocalBrightness] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(device.brightness ?? 80);
+    const [overrideDuration, setOverrideDuration] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(60);
+    const [saving, setSaving] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
+    const isSavingRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(false);
+    const getEndTimeString = (minutes)=>{
+        const end = new Date();
+        end.setMinutes(end.getMinutes() + minutes);
+        return end.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+    const fetchData = async ()=>{
+        if (isSavingRef.current || !roomId || !deviceId) return;
+        try {
+            const state = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["getLightState"])(roomId, deviceId);
+            setLightState(state);
+            if (!isSavingRef.current) {
+                setLocalPower(state.powerState);
+                // Chỉ cập nhật brightness nếu API trả về số hợp lệ
+                if (typeof state.brightness === 'number') setLocalBrightness(state.brightness);
+            }
+        } catch (e) {
+            console.error("Poll error:", e);
+        } finally{
+            setLoading(false);
+        }
+    };
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "LightDetailModal.useEffect": ()=>{
+            fetchData();
+            const interval = setInterval(fetchData, 5000);
+            return ({
+                "LightDetailModal.useEffect": ()=>clearInterval(interval)
+            })["LightDetailModal.useEffect"];
+        }
+    }["LightDetailModal.useEffect"], [
+        roomId,
+        deviceId
+    ]);
+    async function onApplyChanges() {
+        try {
+            setSaving(true);
+            isSavingRef.current = true;
+            await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["updateLightSettings"])(roomId, deviceId, {
+                powerState: localPower,
+                brightness: localBrightness,
+                durationMinutes: overrideDuration
+            });
+            await fetchData();
+        // onClose(); // Giữ modal mở như AC
+        } catch (e) {
+            console.error(e);
+            alert("Failed to update light settings.");
+        } finally{
+            setSaving(false);
+            isSavingRef.current = false;
+        }
+    }
+    const isOverride = lightState?.overrideActive;
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-        className: "fixed inset-0 bg-black/20 z-50 flex items-end",
-        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: "w-full bg-white rounded-t-3xl max-h-[80vh] overflow-y-auto",
-            children: [
-                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "sticky top-0 bg-white border-b border-gray-100 p-6 flex items-center justify-between",
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "flex items-center gap-3",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$lightbulb$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Lightbulb$3e$__["Lightbulb"], {
-                                    size: 24,
-                                    className: "text-emerald-600"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 20,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
-                                            className: "text-xl font-bold text-gray-900",
-                                            children: device.name
+        className: "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200",
+        children: [
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "absolute inset-0",
+                onClick: onClose
+            }, void 0, false, {
+                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                lineNumber: 85,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "bg-white px-6 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 z-10",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "flex items-center gap-3",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: `w-10 h-10 rounded-full flex items-center justify-center transition-colors ${localPower ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`,
+                                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$lightbulb$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Lightbulb$3e$__["Lightbulb"], {
+                                            size: 20
                                         }, void 0, false, {
                                             fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 22,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                            className: "text-sm text-gray-600",
-                                            children: device.model
-                                        }, void 0, false, {
-                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 23,
+                                            lineNumber: 93,
                                             columnNumber: 15
                                         }, this)
-                                    ]
-                                }, void 0, true, {
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 92,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                                                className: "text-lg font-bold text-gray-900 leading-none",
+                                                children: device.name || "Smart Light"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 96,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "text-xs text-gray-500 font-medium",
+                                                children: device.model || "Light Switch"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 99,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 95,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                lineNumber: 91,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                onClick: onClose,
+                                className: "p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors",
+                                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__["X"], {
+                                    size: 20
+                                }, void 0, false, {
                                     fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 21,
+                                    lineNumber: 105,
                                     columnNumber: 13
                                 }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 19,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: onClose,
-                            className: "p-2 hover:bg-gray-100 rounded-lg",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__["X"], {
-                                size: 24
                             }, void 0, false, {
                                 fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                lineNumber: 27,
-                                columnNumber: 13
+                                lineNumber: 104,
+                                columnNumber: 11
                             }, this)
-                        }, void 0, false, {
-                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 26,
-                            columnNumber: 11
-                        }, this)
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                    lineNumber: 18,
-                    columnNumber: 9
-                }, this),
-                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "p-6 pb-12 space-y-6",
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "glass-panel p-6",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-center justify-between",
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                        lineNumber: 90,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "p-6 space-y-6 overflow-y-auto custom-scrollbar",
+                        children: [
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: `rounded-xl p-3 flex items-start gap-3 border ${isOverride ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`,
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: `mt-0.5 ${isOverride ? 'text-green-600' : 'text-gray-500'}`,
+                                        children: isOverride ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"], {
+                                            size: 16
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                            lineNumber: 114,
+                                            columnNumber: 29
+                                        }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$zap$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Zap$3e$__["Zap"], {
+                                            size: 16
+                                        }, void 0, false, {
+                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                            lineNumber: 114,
+                                            columnNumber: 51
+                                        }, this)
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 113,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex-1",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: `text-sm font-bold ${isOverride ? 'text-green-800' : 'text-gray-700'}`,
+                                                children: isOverride ? "Manual Override Active" : "Auto Schedule Mode"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 117,
+                                                columnNumber: 15
+                                            }, this),
+                                            isOverride ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "text-xs text-green-700 mt-0.5",
+                                                children: [
+                                                    "Ends at ",
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
+                                                        children: lightState?.overrideExpiresOnLocalFormatted?.split(' ')[0]
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 122,
+                                                        columnNumber: 27
+                                                    }, this),
+                                                    " • By ",
+                                                    lightState?.controlMode === 'manual-override' ? __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$user$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["CURRENT_USER"] : 'System'
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 121,
+                                                columnNumber: 17
+                                            }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: "text-xs text-gray-500 mt-0.5",
+                                                children: "Light is controlled automatically."
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 125,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 116,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                lineNumber: 112,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "flex items-center justify-between bg-gray-50 rounded-2xl p-4 border border-gray-100",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "font-semibold text-gray-900",
+                                        className: "font-bold text-gray-700 text-sm uppercase tracking-wider",
                                         children: "Power"
                                     }, void 0, false, {
                                         fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                        lineNumber: 35,
-                                        columnNumber: 15
+                                        lineNumber: 132,
+                                        columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                        onClick: ()=>setPowerState(!powerState),
-                                        className: `relative w-12 h-7 rounded-full transition-all ${powerState ? 'bg-emerald-500 shadow-md shadow-emerald-500/30' : 'bg-gray-300'}`,
+                                        onClick: ()=>setLocalPower(!localPower),
+                                        disabled: saving,
+                                        className: `relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none ${localPower ? "bg-amber-500" : "bg-gray-300"}`,
                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: `absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${powerState ? 'translate-x-6' : 'translate-x-1'}`
+                                            className: `absolute top-1 left-1 bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${localPower ? "translate-x-6" : ""}`
                                         }, void 0, false, {
                                             fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 44,
-                                            columnNumber: 17
+                                            lineNumber: 138,
+                                            columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                        lineNumber: 36,
-                                        columnNumber: 15
+                                        lineNumber: 133,
+                                        columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                lineNumber: 34,
-                                columnNumber: 13
-                            }, this)
-                        }, void 0, false, {
-                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 33,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "glass-panel p-6",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                    className: "font-semibold text-gray-900 mb-4",
-                                    children: "Brightness"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 55,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "space-y-4",
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
-                                            type: "range",
-                                            min: "0",
-                                            max: "100",
-                                            value: brightness,
-                                            onChange: (e)=>setBrightness(Number(e.target.value)),
-                                            className: "w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                                        }, void 0, false, {
-                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 57,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "flex items-center justify-between",
-                                            children: [
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                    className: "text-sm text-gray-600",
-                                                    children: "Level"
-                                                }, void 0, false, {
-                                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                                    lineNumber: 66,
-                                                    columnNumber: 17
-                                                }, this),
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                    className: "text-2xl font-bold text-gray-900",
-                                                    children: [
-                                                        brightness,
-                                                        "%"
-                                                    ]
-                                                }, void 0, true, {
-                                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                                    lineNumber: 67,
-                                                    columnNumber: 17
-                                                }, this)
-                                            ]
-                                        }, void 0, true, {
-                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 65,
-                                            columnNumber: 15
-                                        }, this)
-                                    ]
-                                }, void 0, true, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 56,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 54,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "glass-panel p-6",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                                    className: "font-semibold text-gray-900 mb-4",
-                                    children: "Illuminance"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 74,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "space-y-3",
-                                    children: [
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "flex justify-between",
-                                            children: [
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                    className: "text-gray-600",
-                                                    children: "Current"
-                                                }, void 0, false, {
-                                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                                    lineNumber: 77,
-                                                    columnNumber: 17
-                                                }, this),
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                    className: "font-semibold text-gray-900",
-                                                    children: [
-                                                        device.currentLux,
-                                                        "lx"
-                                                    ]
-                                                }, void 0, true, {
-                                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                                    lineNumber: 78,
-                                                    columnNumber: 17
-                                                }, this)
-                                            ]
-                                        }, void 0, true, {
-                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 76,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                            className: "flex justify-between",
-                                            children: [
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                    className: "text-gray-600",
-                                                    children: "Target"
-                                                }, void 0, false, {
-                                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                                    lineNumber: 81,
-                                                    columnNumber: 17
-                                                }, this),
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                    className: "font-semibold text-gray-900",
-                                                    children: [
-                                                        device.targetLux,
-                                                        "lx"
-                                                    ]
-                                                }, void 0, true, {
-                                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                                    lineNumber: 82,
-                                                    columnNumber: 17
-                                                }, this)
-                                            ]
-                                        }, void 0, true, {
-                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 80,
-                                            columnNumber: 15
-                                        }, this),
-                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                            className: "text-xs text-gray-600 pt-2 border-t border-gray-100",
-                                            children: "Lights adjust automatically to maintain target illuminance levels"
-                                        }, void 0, false, {
-                                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                            lineNumber: 84,
-                                            columnNumber: 15
-                                        }, this)
-                                    ]
-                                }, void 0, true, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 75,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 73,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "glass-panel p-6",
-                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-center justify-between",
+                                lineNumber: 131,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: `rounded-3xl p-6 text-center transition-all duration-300 ${localPower ? "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-orange-200" : "bg-gray-50 border-2 border-gray-100 text-gray-400"}`,
                                 children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "font-medium text-gray-900",
-                                        children: "Presence Control"
-                                    }, void 0, false, {
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex items-center justify-between mb-6 px-2",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                                className: `text-xs font-bold uppercase tracking-widest ${localPower ? 'opacity-90' : 'text-gray-500'}`,
+                                                children: "Brightness Level"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 150,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$sun$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Sun$3e$__["Sun"], {
+                                                size: 18,
+                                                className: localPower ? 'opacity-90' : 'text-gray-400'
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 151,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
                                         fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                        lineNumber: 93,
-                                        columnNumber: 15
+                                        lineNumber: 149,
+                                        columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        className: "px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium",
-                                        children: "Enabled"
-                                    }, void 0, false, {
+                                        className: "relative flex flex-col items-center justify-center py-2",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "text-7xl font-bold tracking-tighter leading-none",
+                                                children: [
+                                                    localBrightness,
+                                                    "%"
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 155,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                type: "range",
+                                                min: "0",
+                                                max: "100",
+                                                step: "5",
+                                                value: localBrightness,
+                                                onChange: (e)=>setLocalBrightness(Number(e.target.value)),
+                                                disabled: !localPower || saving,
+                                                className: "w-full h-2 mt-6 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white hover:accent-gray-50"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 158,
+                                                columnNumber: 17
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "w-full flex justify-between text-[10px] font-medium mt-2 opacity-80",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        children: "0%"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 169,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        children: "50%"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 170,
+                                                        columnNumber: 21
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        children: "100%"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 171,
+                                                        columnNumber: 21
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 168,
+                                                columnNumber: 17
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
                                         fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                        lineNumber: 94,
-                                        columnNumber: 15
+                                        lineNumber: 154,
+                                        columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                lineNumber: 92,
-                                columnNumber: 13
+                                lineNumber: 143,
+                                columnNumber: 11
+                            }, this),
+                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                className: "bg-gray-50 rounded-2xl p-5 border border-gray-100",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "flex items-center justify-between mb-4",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "flex items-center gap-2 text-gray-700",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"], {
+                                                        size: 16,
+                                                        className: "text-amber-600"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 180,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                        className: "font-bold text-sm",
+                                                        children: "Hold Settings For"
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 181,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 179,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded text-sm",
+                                                children: overrideDuration < 60 ? `${overrideDuration}m` : `${overrideDuration / 60}h`
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 183,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 178,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                        className: "relative h-6 flex items-center",
+                                        children: [
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
+                                                type: "range",
+                                                min: "30",
+                                                max: "240",
+                                                step: "30",
+                                                value: overrideDuration,
+                                                onChange: (e)=>setOverrideDuration(Number(e.target.value)),
+                                                className: "w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500 z-10"
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 189,
+                                                columnNumber: 15
+                                            }, this),
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                className: "absolute w-full flex justify-between px-1 pointer-events-none",
+                                                children: [
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 30 ? 'bg-amber-500' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 199,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 60 ? 'bg-amber-500' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 200,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 120 ? 'bg-amber-500' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 201,
+                                                        columnNumber: 17
+                                                    }, this),
+                                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                        className: `w-1 h-1 rounded-full ${overrideDuration >= 240 ? 'bg-amber-500' : 'bg-gray-300'}`
+                                                    }, void 0, false, {
+                                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                        lineNumber: 202,
+                                                        columnNumber: 17
+                                                    }, this)
+                                                ]
+                                            }, void 0, true, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 198,
+                                                columnNumber: 15
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 188,
+                                        columnNumber: 13
+                                    }, this),
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                                        className: "text-xs text-center text-gray-500 mt-3 border-t border-gray-200 pt-3",
+                                        children: [
+                                            "Will return to schedule at ",
+                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                className: "font-bold text-gray-800",
+                                                children: getEndTimeString(overrideDuration)
+                                            }, void 0, false, {
+                                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                                lineNumber: 207,
+                                                columnNumber: 42
+                                            }, this)
+                                        ]
+                                    }, void 0, true, {
+                                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                        lineNumber: 206,
+                                        columnNumber: 13
+                                    }, this)
+                                ]
+                            }, void 0, true, {
+                                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                                lineNumber: 177,
+                                columnNumber: 11
                             }, this)
+                        ]
+                    }, void 0, true, {
+                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                        lineNumber: 109,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "p-5 border-t border-gray-100 bg-white sticky bottom-0 z-10",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            onClick: onApplyChanges,
+                            disabled: saving,
+                            className: "w-full py-3.5 rounded-xl bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold text-base shadow-lg shadow-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
+                            children: saving ? "Applying..." : "Apply Settings"
                         }, void 0, false, {
                             fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 91,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "text-xs text-gray-600 space-y-1 px-2",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                    children: "Last updated: automation"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 102,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                    children: "Status: Online"
-                                }, void 0, false, {
-                                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                                    lineNumber: 103,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                            lineNumber: 101,
+                            lineNumber: 215,
                             columnNumber: 11
                         }, this)
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/components/device-details/light-detail-modal.tsx",
-                    lineNumber: 31,
-                    columnNumber: 9
-                }, this)
-            ]
-        }, void 0, true, {
-            fileName: "[project]/components/device-details/light-detail-modal.tsx",
-            lineNumber: 17,
-            columnNumber: 7
-        }, this)
-    }, void 0, false, {
+                    }, void 0, false, {
+                        fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                        lineNumber: 214,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "[project]/components/device-details/light-detail-modal.tsx",
+                lineNumber: 87,
+                columnNumber: 7
+            }, this)
+        ]
+    }, void 0, true, {
         fileName: "[project]/components/device-details/light-detail-modal.tsx",
-        lineNumber: 16,
+        lineNumber: 84,
         columnNumber: 5
     }, this);
 }
-_s(LightDetailModal, "pnZF2LB+wbaUXCJ7kOZ6xqKZhCw=");
+_s(LightDetailModal, "KMPGGRev/hFK7bu5pVkUO7p8gRU=");
 _c = LightDetailModal;
 var _c;
 __turbopack_context__.k.register(_c, "LightDetailModal");

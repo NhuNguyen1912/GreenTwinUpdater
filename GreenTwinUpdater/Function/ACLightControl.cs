@@ -152,6 +152,41 @@ namespace GreenTwinUpdater.Function
             int gracePeriodMinutes = policyComp.TryGetInt("presenceTimeoutMinutes") ?? 0;
             int autoOffTimeoutMinutes = policyComp.TryGetInt("autoOffNoPresenceMinutes") ?? 0;
 
+            // 🔹 Nếu overrideActive = true nhưng đã hết hạn -> clear cờ trong Room.policy
+            if (allowManualOverride &&
+                overrideActive &&
+                overrideExpiresOn.HasValue &&
+                nowUtc >= overrideExpiresOn.Value)
+            {
+                var clearPatch = new JsonPatchDocument();
+                clearPatch.AppendReplace("/policy/overrideActive", false);
+                clearPatch.AppendRemove("/policy/overrideExpiresOn");
+
+                try
+                {
+                    await _adt.UpdateDigitalTwinAsync(room.Id, clearPatch, cancellationToken: ct);
+                    _logger.LogInformation(
+                        "Room {id}: Override expired, cleared overrideActive/overrideExpiresOn.",
+                        room.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Room {id}: Failed to clear expired override flags.", room.Id);
+                }
+
+                // Cập nhật biến local để logic phía dưới dùng giá trị mới
+                overrideActive = false;
+                overrideExpiresOn = null;
+            }
+
+            // 🔹 Tính trạng thái override hiện tại (chỉ true nếu còn hạn)
+            bool isOverrideActive = allowManualOverride &&
+                                    overrideActive &&
+                                    overrideExpiresOn.HasValue &&
+                                    nowUtc < overrideExpiresOn.Value;
+
+
             // Metrics
             var lastMotionUtc = metricsComp.TryGetDateTimeOffset("lastMotionUtc");
             double? currentTemp = metricsComp.TryGetDouble("currentTemperature");
@@ -160,9 +195,6 @@ namespace GreenTwinUpdater.Function
             // Room Targets
             double? targetTemp = GetDouble(room.Contents, "targetTemperature");
             double? targetLux = GetDouble(room.Contents, "targetLux");
-
-            bool isOverrideActive = allowManualOverride && overrideActive &&
-                                    overrideExpiresOn.HasValue && nowUtc < overrideExpiresOn.Value;
 
             var activeSchedule = await FindActiveScheduleViaRelationsAsync(room.Id, weekdayToken, nowLocal, ct);
             bool isWithinSchedule = scheduleEnabled && activeSchedule.within;

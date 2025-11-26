@@ -41,6 +41,40 @@ export type Device = {
   status: string;    // "online" | "offline" | ...
 };
 
+export type LightState = {
+  roomId: string;
+  deviceId: string;
+  powerState: boolean;
+  brightness: number;
+
+  overrideActive: boolean;
+  overrideExpiresOnUtc?: string | null;
+  overrideExpiresOnLocal?: string | null;
+  overrideExpiresOnLocalFormatted?: string | null;
+
+  controlMode?: "manual-override" | "auto-schedule";
+};
+
+export type AcState = {
+  roomId: string;
+  deviceId: string;
+
+  powerState: boolean;
+  mode?: string | null;
+  fanSpeed?: string | null;
+  targetTemperature?: number | null;
+  currentTemperature?: number | null;
+
+  overrideActive: boolean;
+  overrideExpiresOnUtc?: string | null;
+  overrideExpiresOnLocal?: string | null;
+  overrideExpiresOnLocalFormatted?: string | null;
+
+  lastUpdatedBy?: string | null;
+  controlMode?: "manual-override" | "auto-schedule";
+};
+
+
 // ---------- Constants (API base & keys) ----------
 
 const BASE_URL =
@@ -54,6 +88,15 @@ const DEVICES_KEY =
 
 const AC_CONTROL_KEY =
   "bQAT_PQdIK8_JdHjU6tb1XvNt6-NQ77MnXYtMztVqdCYAzFuGFUySQ=="; // key của ACManualControl
+
+const AC_STATE_KEY = "8d-Vxdj_SdNoek78nrbj3k8s1UWfbKXwt27XjEZxyp7PAzFucjwhVg==";
+
+
+const LIGHT_CONTROL_KEY =
+  "s8nazlhbZ6i5h2WAj2FzPkj0p-H1NtkkrZLHT_h6RAKzAzFunXpung==";
+
+const LIGHT_STATE_KEY =
+  "Mk8ouqhlOoqhCxYnIgxF3aVleuQ2TBujU-f-bpG_p1GDAzFuZq9lFA==";
 
 // ---------- API calls ----------
 
@@ -114,21 +157,47 @@ export async function getDevicesForRoom(roomId: string): Promise<Device[]> {
   return res.json();
 }
 
-// Payload gửi lên ACManualControl
+export async function getAcState(
+  roomId: string,
+  deviceId: string
+): Promise<AcState> {
+  const res = await fetch(
+    `${BASE_URL}/rooms/${encodeURIComponent(
+      roomId
+    )}/devices/${encodeURIComponent(
+      deviceId
+    )}/ac-state?code=${AC_STATE_KEY}`,
+    { cache: "no-store" }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("Failed to load AC state", {
+      status: res.status,
+      body: text,
+    });
+    throw new Error(text || "Failed to load AC state");
+  }
+
+  return res.json();
+}
+
 export type UpdateAcPayload = {
   powerState?: boolean;
   mode?: string;
   fanSpeed?: string;
   targetTemperature?: number;
-  user?: string; // ví dụ "Bang"
+  user?: string;
+  durationMinutes?: number; // <-- Thêm trường này
 };
 
-// Gửi lệnh điều khiển AC + bật manual override 60 phút
+// ... (Các hàm khác giữ nguyên)
+
 export async function updateAcSettings(
   roomId: string,
   deviceId: string,
   payload: UpdateAcPayload
-): Promise<string> {
+): Promise<AcState> {
   const res = await fetch(
     `${BASE_URL}/rooms/${encodeURIComponent(
       roomId
@@ -143,10 +212,81 @@ export async function updateAcSettings(
   );
 
   if (!res.ok) {
-    console.error("Failed to update AC", res.status, await res.text());
-    throw new Error("Failed to update AC");
+    const text = await res.text();
+    console.error("Failed to update AC detail", {
+      status: res.status,
+      body: text,
+    });
+    throw new Error(text || "Failed to update AC");
   }
 
-  // Function trả về string (OK – override until ...), đọc text là đủ
-  return res.text().catch(() => "");
+  return res.json();
+}
+
+
+// ---------- Light control ----------
+
+// Đọc trạng thái Light (kể cả đang auto theo schedule)
+export async function getLightState(
+  roomId: string,
+  deviceId: string
+): Promise<LightState> {
+  const res = await fetch(
+    `${BASE_URL}/rooms/${encodeURIComponent(
+      roomId
+    )}/devices/${encodeURIComponent(
+      deviceId
+    )}/light-state?code=${LIGHT_STATE_KEY}`,
+    { cache: "no-store" }
+  );
+
+  if (!res.ok) {
+    console.error("Failed to load light state", res.status, await res.text());
+    throw new Error("Failed to load light state");
+  }
+
+  return res.json();
+}
+
+// Payload điều khiển Light
+export type UpdateLightPayload = {
+  powerState?: boolean;      // true/false, nếu không gửi sẽ toggle
+  brightness?: number;       // 0–100
+  durationMinutes?: number;  // override bao nhiêu phút, default 60
+};
+
+// Gửi lệnh manual override cho Light
+export async function updateLightSettings(
+  roomId: string,
+  deviceId: string,
+  payload: UpdateLightPayload
+): Promise<LightState> {
+  const res = await fetch(
+    `${BASE_URL}/rooms/${encodeURIComponent(
+      roomId
+    )}/devices/${encodeURIComponent(
+      deviceId
+    )}/light-control?code=${LIGHT_CONTROL_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+
+    if (!res.ok) {
+    const text = await res.text();
+    console.error("Failed to update Light detail", {
+      url: res.url,
+      status: res.status,
+      statusText: res.statusText,
+      body: text,
+    });
+    throw new Error(text || `Failed to update Light (${res.status})`);
+  }
+
+
+
+  // Function trả về object JSON (roomId, deviceId, powerState, brightness, override...)
+  return res.json();
 }
