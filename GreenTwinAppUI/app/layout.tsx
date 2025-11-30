@@ -9,22 +9,21 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Smart Campus - GreenTwin',
   description: 'Smart building management system for university classrooms with Azure Digital Twins',
-  generator: 'v0.app',
+  generator: 'GreenTwin Smart Building System',
   viewport: {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
-    themeColor: '#000000',
   },
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
+        url: '/logo GreenTwin.jpg',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/icon-dark-32x32.png',
+        url: '/logo GreenTwin.jpg',
         media: '(prefers-color-scheme: dark)',
       },
       {

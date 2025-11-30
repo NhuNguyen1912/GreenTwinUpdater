@@ -30,6 +30,10 @@ export type Schedule = {
   weekdays: string[];
   startTime: string;
   endTime: string;
+  // NEW: Thêm 2 trường hiệu lực
+  effectiveFrom?: string; // Format YYYY-MM-DD
+  effectiveTo?: string;   // Format YYYY-MM-DD
+  enabled?: boolean;
 };
 
 export type Device = {
@@ -80,17 +84,23 @@ export type AcState = {
 const BASE_URL =
   "https://greentwiniotcentraltrigger-ezgmgugyb9fkfwem.japaneast-01.azurewebsites.net/api";
 
+// --- ROOM KEYS ---
 const ROOMS_KEY =
   "XcGh9Rjnkz-NiNrgK6_qD4_slZugmc38Qob2svJAcFEJAzFuoBUalg==";
 
 const DEVICES_KEY =
   "uKQLG3SulECzSU_jJPLsNBoVPG889Qy5IaaxNmiJ5G9QAzFuPH_SrQ==";
 
+// --- SCHEDULE KEYS (TODO: Hãy điền key thật từ Azure Portal vào đây) ---
+const SCHEDULES_KEY = "eSCCmJ4DKYgcmQ0YPab8aDMJ5pWuSJQLO7-n3PnV2i5AAzFuSIAbLg=="; 
+const CREATE_SCHED_KEY = "OnmL436GYbEjy9MQ9CCxvK3Bhb0vRmC7_aDn8vYHuvBBAzFuK1NCMw=="; 
+const DEL_SCHED_KEY = "Z7O9oOwF5F0YLXg46BvQ_SsVZyjPyVMZqIirU8gsFZhGAzFu0IKyig=="; 
+
+// --- CONTROL KEYS ---
 const AC_CONTROL_KEY =
-  "bQAT_PQdIK8_JdHjU6tb1XvNt6-NQ77MnXYtMztVqdCYAzFuGFUySQ=="; // key của ACManualControl
+  "bQAT_PQdIK8_JdHjU6tb1XvNt6-NQ77MnXYtMztVqdCYAzFuGFUySQ=="; 
 
 const AC_STATE_KEY = "8d-Vxdj_SdNoek78nrbj3k8s1UWfbKXwt27XjEZxyp7PAzFucjwhVg==";
-
 
 const LIGHT_CONTROL_KEY =
   "s8nazlhbZ6i5h2WAj2FzPkj0p-H1NtkkrZLHT_h6RAKzAzFunXpung==";
@@ -100,7 +110,7 @@ const LIGHT_STATE_KEY =
 
 // ---------- API calls ----------
 
-// Lấy danh sách phòng từ Function GetRooms
+// 1. Lấy danh sách phòng
 export async function getRooms(): Promise<Room[]> {
   const res = await fetch(`${BASE_URL}/rooms?code=${ROOMS_KEY}`, {
     cache: "no-store",
@@ -114,35 +124,69 @@ export async function getRooms(): Promise<Room[]> {
   return res.json();
 }
 
-// Tạm thời schedule vẫn là fake local (mock)
+// 2. Lấy danh sách lịch học (API Thật)
 export async function getSchedules(): Promise<Schedule[]> {
-  await new Promise((res) => setTimeout(res, 300));
+  // Gọi endpoint GetSchedules
+  const res = await fetch(`${BASE_URL}/schedules?code=${SCHEDULES_KEY}`, { 
+    cache: "no-store" 
+  });
 
-  return [
-    {
-      id: "1",
-      roomId: "RoomA001",
-      roomName: "Room A001",
-      courseName: "IoT Systems",
-      lecturer: "Dr. Smith",
-      weekdays: ["MON", "WED", "FRI"],
-      startTime: "09:00",
-      endTime: "11:00",
-    },
-    {
-      id: "2",
-      roomId: "RoomA002",
-      roomName: "Room A002",
-      courseName: "Advanced Python",
-      lecturer: "Prof. Brown",
-      weekdays: ["TUE", "THU"],
-      startTime: "13:30",
-      endTime: "15:00",
-    },
-  ];
+  if (!res.ok) {
+    console.error("Failed load schedules", res.status);
+    return []; // Trả về rỗng nếu lỗi để không crash UI
+  }
+  return res.json();
 }
 
-// Lấy danh sách thiết bị trong 1 room từ Function GetDevicesForRoom
+// 3. Tạo lịch học mới (API Thật) - Đã cập nhật Payload
+export async function createSchedule(
+  roomId: string, 
+  data: { 
+    courseName: string; 
+    lecturer: string; 
+    weekdays: string[]; 
+    startTime: string; 
+    endTime: string; 
+    // NEW: Thêm 2 trường này vào payload gửi đi
+    effectiveFrom: string;
+    effectiveTo: string;
+  }
+): Promise<Schedule> {
+  const res = await fetch(
+    `${BASE_URL}/rooms/${roomId}/schedules?code=${CREATE_SCHED_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Failed to create schedule");
+  }
+  return res.json();
+}
+
+// 4. Xóa lịch học (API Thật)
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  // Encode ID để tránh lỗi URL nếu ID có ký tự đặc biệt
+  const encodedId = encodeURIComponent(scheduleId);
+  
+  const res = await fetch(
+    `${BASE_URL}/schedules/${encodedId}?code=${DEL_SCHED_KEY}`,
+    { method: "DELETE" }
+  );
+
+  if (!res.ok) {
+    // Đọc text lỗi từ server để debug
+    const errorText = await res.text();
+    console.error(`Delete failed (Status: ${res.status}):`, errorText);
+    throw new Error(`Failed to delete schedule: ${res.status} ${errorText}`);
+  }
+}
+
+// 5. Lấy danh sách thiết bị trong 1 room
 export async function getDevicesForRoom(roomId: string): Promise<Device[]> {
   const res = await fetch(
     `${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices?code=${DEVICES_KEY}`,
@@ -156,6 +200,8 @@ export async function getDevicesForRoom(roomId: string): Promise<Device[]> {
 
   return res.json();
 }
+
+// --- AC Control ---
 
 export async function getAcState(
   roomId: string,
@@ -188,10 +234,8 @@ export type UpdateAcPayload = {
   fanSpeed?: string;
   targetTemperature?: number;
   user?: string;
-  durationMinutes?: number; // <-- Thêm trường này
+  durationMinutes?: number;
 };
-
-// ... (Các hàm khác giữ nguyên)
 
 export async function updateAcSettings(
   roomId: string,
@@ -224,9 +268,8 @@ export async function updateAcSettings(
 }
 
 
-// ---------- Light control ----------
+// --- Light control ---
 
-// Đọc trạng thái Light (kể cả đang auto theo schedule)
 export async function getLightState(
   roomId: string,
   deviceId: string
@@ -248,14 +291,12 @@ export async function getLightState(
   return res.json();
 }
 
-// Payload điều khiển Light
 export type UpdateLightPayload = {
-  powerState?: boolean;      // true/false, nếu không gửi sẽ toggle
-  brightness?: number;       // 0–100
-  durationMinutes?: number;  // override bao nhiêu phút, default 60
+  powerState?: boolean;
+  brightness?: number;
+  durationMinutes?: number;
 };
 
-// Gửi lệnh manual override cho Light
 export async function updateLightSettings(
   roomId: string,
   deviceId: string,
@@ -285,8 +326,5 @@ export async function updateLightSettings(
     throw new Error(text || `Failed to update Light (${res.status})`);
   }
 
-
-
-  // Function trả về object JSON (roomId, deviceId, powerState, brightness, override...)
   return res.json();
 }
