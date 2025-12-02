@@ -34,6 +34,7 @@ export type Schedule = {
   effectiveFrom?: string; // Format YYYY-MM-DD
   effectiveTo?: string;   // Format YYYY-MM-DD
   enabled?: boolean;
+  isException?: boolean
 };
 
 export type Device = {

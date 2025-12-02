@@ -15,24 +15,27 @@ interface RoomDetailModalProps {
 export default function RoomDetailModal({ room, onClose }: RoomDetailModalProps) {
   const [activeTab, setActiveTab] = useState<"metrics" | "devices" | "schedule">("metrics")
 
-  // ❗ Sửa lại cho đúng schema mới
   const isActive = room.inClass === true
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex items-end">
-      <div className="w-full bg-white rounded-t-3xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
-        
-        {/* HEADER */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+      {/* modal container KHÔNG scroll, chỉ chứa flex-col */}
+      <div className="w-full max-w-6xl bg-white rounded-3xl max-h-[90vh] flex flex-col overflow-hidden">
+        {/* HEADER – đứng yên trên cùng */}
+        <div className="border-b border-gray-200 p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <div
                   className={`w-3 h-3 rounded-full ${
-                    isActive ? "bg-green-500 shadow-sm shadow-green-500/50" : "bg-gray-400"
+                    isActive
+                      ? "bg-green-500 shadow-sm shadow-green-500/50"
+                      : "bg-gray-400"
                   }`}
                 />
-                <h2 className="text-2xl font-bold text-gray-900">{room.name}</h2>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {room.name}
+                </h2>
               </div>
 
               <p className="text-sm text-gray-600">
@@ -64,7 +67,6 @@ export default function RoomDetailModal({ room, onClose }: RoomDetailModalProps)
                   )}
 
                   <p className="text-xs text-green-600 mt-1">
-                    {/* TODO: Tính toán sau */}
                     Time left: --
                   </p>
                 </div>
@@ -86,8 +88,8 @@ export default function RoomDetailModal({ room, onClose }: RoomDetailModalProps)
           )}
         </div>
 
-        {/* TABS */}
-        <div className="sticky top-[180px] bg-white border-b border-gray-100 px-6 py-3 flex gap-2 z-10">
+        {/* TABS – cũng đứng yên, chỉ content bên dưới scroll */}
+        <div className="border-b border-gray-100 px-6 py-3 flex gap-2">
           {(["metrics", "devices", "schedule"] as const).map((tab) => (
             <button
               key={tab}
@@ -103,8 +105,8 @@ export default function RoomDetailModal({ room, onClose }: RoomDetailModalProps)
           ))}
         </div>
 
-        {/* TAB CONTENT */}
-        <div className="p-6 pb-12">
+        {/* TAB CONTENT – CHỈ PHẦN NÀY SCROLL */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 pb-10">
           {activeTab === "metrics" && <MetricsTab room={room} />}
           {activeTab === "devices" && <DevicesTab room={room} />}
           {activeTab === "schedule" && <ScheduleTabDetail room={room} />}

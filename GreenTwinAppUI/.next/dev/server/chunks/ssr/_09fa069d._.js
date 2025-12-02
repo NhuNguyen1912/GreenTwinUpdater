@@ -2496,199 +2496,204 @@ __turbopack_context__.s([
     ()=>ScheduleTab
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/server/route-modules/app-page/vendored/ssr/react-jsx-dev-runtime.js [app-ssr] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/clock.js [app-ssr] (ecmascript) <export default as Clock>");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$pen$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Edit2$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/pen.js [app-ssr] (ecmascript) <export default as Edit2>");
-'use client';
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/server/route-modules/app-page/vendored/ssr/react.js [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$calendar$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Calendar$3e$__ = __turbopack_context__.i("[project]/node_modules/lucide-react/dist/esm/icons/calendar.js [app-ssr] (ecmascript) <export default as Calendar>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/api.ts [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$date$2d$fns$2f$format$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/date-fns/format.js [app-ssr] (ecmascript) <locals>");
+(()=>{
+    const e = new Error("Cannot find module './room-schedule'");
+    e.code = 'MODULE_NOT_FOUND';
+    throw e;
+})();
+"use client";
 ;
 ;
-const mockSchedules = [
-    {
-        id: '1',
-        courseName: 'Data Networks',
-        lecturer: 'Dr. Smith',
-        weekdays: [
-            'MON',
-            'WED',
-            'FRI'
-        ],
-        startTime: '09:00',
-        endTime: '10:30',
-        enabled: true
-    },
-    {
-        id: '2',
-        courseName: 'Advanced Python',
-        lecturer: 'Prof. Brown',
-        weekdays: [
-            'TUE',
-            'THU'
-        ],
-        startTime: '13:30',
-        endTime: '15:00',
-        enabled: true
-    },
-    {
-        id: '3',
-        courseName: 'Web Development',
-        lecturer: 'Dr. Lee',
-        weekdays: [
-            'MON',
-            'WED'
-        ],
-        startTime: '15:30',
-        endTime: '17:00',
-        enabled: false
+;
+;
+;
+;
+// Helper parse Excel (giữ nguyên)
+const parseExcelDate = (excelValue, isTime = false)=>{
+    // ... (giữ nguyên code parseExcelDate cũ của bạn) ...
+    if (!excelValue) return "";
+    if (typeof excelValue === 'number') {
+        const date = new Date(Math.round((excelValue - 25569) * 86400 * 1000));
+        if (isTime) {
+            const h = date.getUTCHours().toString().padStart(2, '0');
+            const m = date.getUTCMinutes().toString().padStart(2, '0');
+            const s = date.getUTCSeconds().toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        } else {
+            return date.toISOString().split('T')[0];
+        }
     }
-];
+    const str = String(excelValue).trim();
+    if (isTime && str.includes(':')) {
+        const parts = str.split(':');
+        const h = parts[0].padStart(2, '0');
+        const m = parts[1] ? parts[1].padStart(2, '0') : '00';
+        const s = parts[2] ? parts[2].padStart(2, '0') : '00';
+        return `${h}:${m}:${s}`;
+    }
+    return str;
+};
 function ScheduleTab({ room }) {
+    // Nếu không có prop room, fallback về A001 hoặc lấy từ list
+    const currentRoomId = room?.id || "A001";
+    const [schedules, setSchedules] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(true);
+    // Form & Import state...
+    const [creating, setCreating] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    const [importing, setImporting] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    // Form fields
+    const [courseName, setCourseName] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [lecturer, setLecturer] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [selectedDays, setSelectedDays] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [startTime, setStartTime] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [endTime, setEndTime] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [effectiveFrom, setEffectiveFrom] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const [effectiveTo, setEffectiveTo] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
+    const weekdays = [
+        "MON",
+        "TUE",
+        "WED",
+        "THU",
+        "FRI",
+        "SAT",
+        "SUN"
+    ];
+    // Load Data
+    const loadData = async ()=>{
+        try {
+            // Chỉ cần lấy schedules, không cần lấy danh sách rooms nữa vì đã biết phòng hiện tại
+            const s = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["getSchedules"])();
+            // Lọc client-side để chỉ lấy lịch của phòng hiện tại (nếu API trả về tất cả)
+            const roomSchedules = s.filter((item)=>item.roomId === currentRoomId);
+            setSchedules(roomSchedules);
+        } catch (err) {
+            console.error("Failed load schedules", err);
+        } finally{
+            setLoading(false);
+        }
+    };
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        loadData();
+    }, [
+        currentRoomId
+    ]);
+    // Handle Exception
+    const handleAddException = async (date, startT, endT)=>{
+        const dateStr = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$date$2d$fns$2f$format$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["format"])(date, "yyyy-MM-dd");
+        const dayOfWeek = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$date$2d$fns$2f$format$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["format"])(date, "EEE").toUpperCase();
+        const action = window.prompt(`TẠO NGOẠI LỆ CHO NGÀY ${dateStr} (${startT}-${endT})?\n\n` + `- Nhập 'nghi' để báo nghỉ.\n` + `- Nhập tên môn mới để dạy bù.\n`, "nghi");
+        if (!action) return;
+        let newCourse = action;
+        let newLecturer = "";
+        if (action.toLowerCase().trim() === "nghi") {
+            newCourse = "Canceled";
+        } else {
+            newLecturer = window.prompt("Tên giảng viên (nếu có):") || "";
+        }
+        try {
+            await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createSchedule"])(currentRoomId, {
+                courseName: newCourse,
+                lecturer: newLecturer,
+                weekdays: [
+                    dayOfWeek
+                ],
+                startTime: startT,
+                endTime: endT,
+                effectiveFrom: dateStr,
+                effectiveTo: dateStr
+            });
+            await loadData();
+        } catch (err) {
+            alert("Lỗi tạo ngoại lệ");
+        }
+    };
+    // Handle Manual Create
+    const handleCreateSchedule = async ()=>{
+        if (!courseName || !startTime || !endTime || !effectiveFrom || !effectiveTo || selectedDays.length === 0) {
+            alert("Vui lòng điền đầy đủ thông tin.");
+            return;
+        }
+        setCreating(true);
+        try {
+            const sTime = startTime.length === 5 ? `${startTime}:00` : startTime;
+            const eTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+            await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createSchedule"])(currentRoomId, {
+                courseName,
+                lecturer,
+                weekdays: selectedDays,
+                startTime: sTime,
+                endTime: eTime,
+                effectiveFrom,
+                effectiveTo
+            });
+            await loadData();
+            // Reset form...
+            setCourseName("");
+            setLecturer("");
+            setSelectedDays([]);
+            setStartTime("");
+            setEndTime("");
+            alert("Tạo lịch thành công!");
+        } catch (err) {
+            alert("Lỗi tạo lịch.");
+        } finally{
+            setCreating(false);
+        }
+    };
+    // ... (Giữ nguyên logic handleFileUpload, handleDeleteSchedule, toggleDay...)
+    if (loading) return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+        className: "py-10 text-center text-gray-500",
+        children: "Loading schedules..."
+    }, void 0, false, {
+        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
+        lineNumber: 159,
+        columnNumber: 23
+    }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-        className: "space-y-4",
+        className: "p-6 space-y-6",
         children: [
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "flex items-center justify-between mb-6",
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                className: "text-xl font-bold text-gray-900 flex items-center gap-2",
                 children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
-                        className: "font-semibold text-gray-900",
-                        children: "Classroom Schedule"
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$calendar$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Calendar$3e$__["Calendar"], {
+                        className: "text-emerald-600"
                     }, void 0, false, {
                         fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                        lineNumber: 43,
+                        lineNumber: 164,
                         columnNumber: 9
                     }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                        className: "text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1",
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$pen$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Edit2$3e$__["Edit2"], {
-                                size: 16
-                            }, void 0, false, {
-                                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                lineNumber: 45,
-                                columnNumber: 11
-                            }, this),
-                            "Edit"
-                        ]
-                    }, void 0, true, {
-                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                        lineNumber: 44,
-                        columnNumber: 9
-                    }, this)
+                    "Thời Khóa Biểu - Phòng ",
+                    room?.name || currentRoomId
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                lineNumber: 42,
+                lineNumber: 163,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "space-y-3",
-                children: mockSchedules.map((schedule)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: `glass-panel p-5 border-l-4 ${schedule.enabled ? 'border-l-emerald-500' : 'border-l-gray-300'}`,
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-start justify-between mb-3",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h4", {
-                                                className: "font-semibold text-gray-900",
-                                                children: schedule.courseName
-                                            }, void 0, false, {
-                                                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                                lineNumber: 60,
-                                                columnNumber: 17
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                                                className: "text-sm text-gray-600",
-                                                children: schedule.lecturer
-                                            }, void 0, false, {
-                                                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                                lineNumber: 61,
-                                                columnNumber: 17
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                        lineNumber: 59,
-                                        columnNumber: 15
-                                    }, this),
-                                    !schedule.enabled && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded",
-                                        children: "Disabled"
-                                    }, void 0, false, {
-                                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                        lineNumber: 64,
-                                        columnNumber: 17
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                lineNumber: 58,
-                                columnNumber: 13
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-center gap-2 mb-3 flex-wrap",
-                                children: schedule.weekdays.map((day)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded",
-                                        children: day
-                                    }, day, false, {
-                                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                        lineNumber: 72,
-                                        columnNumber: 17
-                                    }, this))
-                            }, void 0, false, {
-                                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                lineNumber: 70,
-                                columnNumber: 13
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-center gap-2 text-sm text-gray-600",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"], {
-                                        size: 16
-                                    }, void 0, false, {
-                                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                        lineNumber: 82,
-                                        columnNumber: 15
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        children: [
-                                            schedule.startTime,
-                                            " – ",
-                                            schedule.endTime
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                        lineNumber: 83,
-                                        columnNumber: 15
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                                lineNumber: 81,
-                                columnNumber: 13
-                            }, this)
-                        ]
-                    }, schedule.id, true, {
-                        fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                        lineNumber: 52,
-                        columnNumber: 11
-                    }, this))
+                className: "glass-panel p-1 border border-emerald-100 bg-white rounded-2xl shadow-sm overflow-hidden",
+                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(RoomSchedule, {
+                    schedules: schedules,
+                    roomId: currentRoomId,
+                    onAddException: handleAddException
+                }, void 0, false, {
+                    fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
+                    lineNumber: 170,
+                    columnNumber: 11
+                }, this)
             }, void 0, false, {
                 fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                lineNumber: 50,
-                columnNumber: 7
-            }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                className: "w-full glass-panel p-4 font-medium text-emerald-600 hover:bg-emerald-50 transition-colors mt-6",
-                children: "Add Schedule"
-            }, void 0, false, {
-                fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-                lineNumber: 91,
+                lineNumber: 169,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/detail-tabs/schedule-tab.tsx",
-        lineNumber: 41,
+        lineNumber: 162,
         columnNumber: 5
     }, this);
 }
