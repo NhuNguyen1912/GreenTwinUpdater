@@ -1,0 +1,8 @@
+{
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/a21f285c-07d6-4ef1-8b14-10083d967e75/resourceGroups/GreenTwin/providers/Microsoft.Web/sites/GreenTwinWeb",
+    "appService.deploySubpath": "."
+}
