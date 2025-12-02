@@ -365,6 +365,11 @@ FodyWeavers.xsd
 # VS Code
 .vscode/
 
-# Build & deps
-GreenTwinAppUI/.next/
-GreenTwinAppUI/node_modules/
+# Node / Next.js 
+node_modules/
+.next/
+out/
+dist/
+
+# Azure Static Web Apps CLI
+.swa/
