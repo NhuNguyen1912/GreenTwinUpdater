@@ -21,7 +21,7 @@ interface ScheduleExceptionModalProps {
   date: string
   onClose: () => void
   onConfirm: (exception: ScheduleException) => void
-  availableCourses: Array<{ name: string; lecturer: string }>
+  // Đã xóa prop availableCourses vì không còn dùng nữa
 }
 
 export default function ScheduleExceptionModal({
@@ -30,10 +30,12 @@ export default function ScheduleExceptionModal({
   date,
   onClose,
   onConfirm,
-  availableCourses,
 }: ScheduleExceptionModalProps) {
   const [selectedAction, setSelectedAction] = useState<"cancel" | "replace" | null>(null)
-  const [selectedCourse, setSelectedCourse] = useState<{ name: string; lecturer: string } | null>(null)
+  
+  // State mới cho input thủ công
+  const [newCourseName, setNewCourseName] = useState("")
+  const [newLecturer, setNewLecturer] = useState("")
 
   if (!isOpen) return null
 
@@ -48,7 +50,8 @@ export default function ScheduleExceptionModal({
         startTime: scheduleEntry.startTime,
         endTime: scheduleEntry.endTime,
       })
-    } else if (selectedAction === "replace" && selectedCourse) {
+    } else if (selectedAction === "replace") {
+      // Logic mới: Lấy dữ liệu từ input text
       onConfirm({
         type: "replace",
         courseId: scheduleEntry.id,
@@ -57,11 +60,16 @@ export default function ScheduleExceptionModal({
         originalLecturer: scheduleEntry.lecturer,
         startTime: scheduleEntry.startTime,
         endTime: scheduleEntry.endTime,
-        newCourseName: selectedCourse.name,
-        newLecturer: selectedCourse.lecturer,
+        newCourseName: newCourseName, // Lấy từ state
+        newLecturer: newLecturer,     // Lấy từ state
       })
     }
   }
+
+  // Điều kiện disable nút xác nhận
+  const isConfirmDisabled = 
+    !selectedAction || 
+    (selectedAction === "replace" && !newCourseName.trim()); // Bắt buộc phải nhập tên môn
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -126,29 +134,35 @@ export default function ScheduleExceptionModal({
             </label>
           </div>
 
-          {/* Course Selection for Replace */}
+          {/* INPUT FORM: Chỉ hiện khi chọn Replace */}
           {selectedAction === "replace" && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700">Chọn môn học thay thế</label>
-              <select
-                value={selectedCourse ? `${selectedCourse.name}|${selectedCourse.lecturer}` : ""}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    const [name, lecturer] = e.target.value.split("|")
-                    setSelectedCourse({ name, lecturer })
-                  } else {
-                    setSelectedCourse(null)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">-- Chọn môn học --</option>
-                {availableCourses.map((course, idx) => (
-                  <option key={idx} value={`${course.name}|${course.lecturer}`}>
-                    {course.name} - {course.lecturer}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tên môn học thay thế <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCourseName}
+                  onChange={(e) => setNewCourseName(e.target.value)}
+                  placeholder="Ví dụ: Lập trình Web (Dạy bù)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tên giảng viên
+                </label>
+                <input
+                  type="text"
+                  value={newLecturer}
+                  onChange={(e) => setNewLecturer(e.target.value)}
+                  placeholder="Nhập tên giảng viên..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                />
+              </div>
             </div>
           )}
 
@@ -165,11 +179,11 @@ export default function ScheduleExceptionModal({
             onClick={onClose}
             className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-medium"
           >
-            Hủy
+            Đóng
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!selectedAction || (selectedAction === "replace" && !selectedCourse)}
+            disabled={isConfirmDisabled}
             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
           >
             Xác nhận
