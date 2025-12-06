@@ -1,14 +1,18 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { Upload, Plus, Trash2, Clock, Calendar, User, BookOpen } from "lucide-react"
-import { getRooms, getSchedules, createSchedule, deleteSchedule, type Room, type Schedule } from "@/lib/api"
-import * as XLSX from 'xlsx'; 
+import { useEffect, useState, useRef, useMemo } from "react"
+import { Upload, Plus, Filter, Clock, Calendar, User, BookOpen } from "lucide-react"
+// GIỮ LẠI: Import Schedule từ api (đây là type chính của dữ liệu)
+import { getRooms, getSchedules, createSchedule, type Room, type Schedule } from "@/lib/api"
+import * as XLSX from 'xlsx';
+import { format } from "date-fns"
 
-// Helper parse ngày giờ
+// SỬA Ở ĐÂY: Chỉ import default (RoomSchedule), bỏ named import { Schedule } để tránh trùng tên
+import RoomSchedule from "../timetable/room-schedule"
+
+// Helper parse ngày giờ (giữ nguyên)
 const parseExcelDate = (excelValue: any, isTime = false): string => {
   if (!excelValue) return "";
-  
   if (typeof excelValue === 'number') {
     const date = new Date(Math.round((excelValue - 25569) * 86400 * 1000));
     if (isTime) {
@@ -20,14 +24,13 @@ const parseExcelDate = (excelValue: any, isTime = false): string => {
       return date.toISOString().split('T')[0];
     }
   }
-  
   const str = String(excelValue).trim();
   if (isTime && str.includes(':')) {
-      const parts = str.split(':');
-      const h = parts[0].padStart(2, '0');
-      const m = parts[1] ? parts[1].padStart(2, '0') : '00';
-      const s = parts[2] ? parts[2].padStart(2, '0') : '00';
-      return `${h}:${m}:${s}`;
+    const parts = str.split(':');
+    const h = parts[0].padStart(2, '0');
+    const m = parts[1] ? parts[1].padStart(2, '0') : '00';
+    const s = parts[2] ? parts[2].padStart(2, '0') : '00';
+    return `${h}:${m}:${s}`;
   }
   return str;
 };
@@ -37,9 +40,9 @@ export default function ScheduleTab() {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [importing, setImporting] = useState(false) 
+  const [importing, setImporting] = useState(false)
 
-  // Form state
+  // Form state (Tạo lịch)
   const [selectedRoom, setSelectedRoom] = useState<string>("")
   const [courseName, setCourseName] = useState("")
   const [lecturer, setLecturer] = useState("")
@@ -49,15 +52,22 @@ export default function ScheduleTab() {
   const [effectiveFrom, setEffectiveFrom] = useState("")
   const [effectiveTo, setEffectiveTo] = useState("")
 
+  // State cho bộ lọc xem lịch (MỚI)
+  const [viewRoomId, setViewRoomId] = useState<string>("")
+
   const weekdays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = async () => {
-    // Không set loading=true ở đây để tránh nháy màn hình khi reload ngầm
     try {
       const [r, s] = await Promise.all([getRooms(), getSchedules()])
       setRooms(r)
       setSchedules(s)
+
+      // Mặc định chọn phòng đầu tiên để xem nếu chưa chọn
+      if (r.length > 0 && !viewRoomId) {
+        setViewRoomId(r[0].id)
+      }
     } catch (err) {
       console.error("Failed to load schedule data", err)
     } finally {
@@ -69,11 +79,79 @@ export default function ScheduleTab() {
     loadData()
   }, [])
 
+  // --- LOGIC LỌC LỊCH ĐỂ HIỂN THỊ ---
+  const filteredSchedules = useMemo(() => {
+    if (!viewRoomId) return [];
+    return schedules.filter(s =>
+      s.roomId === viewRoomId ||
+      // Hack: Nếu vừa tạo xong mà API chưa trả về roomId kịp (Unknown/null) 
+      // nhưng người dùng đang xem đúng phòng vừa tạo thì cho hiện luôn
+      ((s.roomId === "Unknown" || s.roomId === null) && selectedRoom === viewRoomId)
+    );
+  }, [schedules, viewRoomId, selectedRoom]);
+
+
+  // --- LOGIC XỬ LÝ EXCEPTION (HỦY/THAY THẾ) ---
+  const handleUpdateScheduleException = async (exceptionData: any) => {
+    if (!viewRoomId) return;
+
+    // Chuẩn bị dữ liệu
+    const dateObj = new Date(exceptionData.date);
+    const dayOfWeek = format(dateObj, "EEE").toUpperCase();
+    let payloadCourseName = "";
+    let payloadLecturer = "";
+
+    if (exceptionData.type === 'cancel') {
+      payloadCourseName = "Nghỉ (Canceled)";
+      payloadLecturer = "";
+    } else {
+      payloadCourseName = exceptionData.newCourseName;
+      payloadLecturer = exceptionData.newLecturer || "";
+    }
+
+    try {
+      // Gọi API tạo lịch đè (Exception)
+      const created = await createSchedule(viewRoomId, {
+        courseName: payloadCourseName,
+        lecturer: payloadLecturer,
+        weekdays: [dayOfWeek],
+        startTime: exceptionData.startTime,
+        endTime: exceptionData.endTime,
+        effectiveFrom: exceptionData.date,
+        effectiveTo: exceptionData.date
+      });
+
+      // Optimistic Update
+      const newSched: Schedule = {
+        id: created.id,
+        roomId: viewRoomId,
+        roomName: rooms.find(r => r.id === viewRoomId)?.name || viewRoomId,
+        courseName: created.courseName,
+        lecturer: created.lecturer,
+        weekdays: created.weekdays,
+        startTime: created.startTime,
+        endTime: created.endTime,
+        effectiveFrom: created.effectiveFrom,
+        effectiveTo: created.effectiveTo,
+        isException: true,
+        enabled: true
+      };
+
+      setSchedules(prev => [...prev, newSched]);
+      alert(exceptionData.type === 'cancel' ? "Đã hủy buổi học thành công!" : "Đã thay đổi lịch học thành công!");
+
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi khi cập nhật lịch học.");
+    }
+  };
+
+
   function toggleDay(day: string) {
     if (selectedDays.includes(day)) {
-        setSelectedDays([])
+      setSelectedDays([])
     } else {
-        setSelectedDays([day])
+      setSelectedDays([day])
     }
   }
 
@@ -88,7 +166,6 @@ export default function ScheduleTab() {
       const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
       const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
 
-      // 1. Gọi API tạo lịch
       const newSchedule = await createSchedule(selectedRoom, {
         courseName,
         lecturer,
@@ -99,17 +176,19 @@ export default function ScheduleTab() {
         effectiveTo
       })
 
-      // 2. Cập nhật UI NGAY LẬP TỨC bằng cách thêm item mới vào state
-      // (Cần bổ sung roomName cho item mới để hiển thị đẹp)
       const roomObj = rooms.find(r => r.id === selectedRoom);
       const scheduleWithRoomName: Schedule = {
         ...newSchedule,
-        roomName: roomObj ? (roomObj.name || roomObj.id) : selectedRoom // Fallback name
+        // QUAN TRỌNG: Gán cứng roomId để UI hiển thị ngay lập tức kể cả khi API trả về Unknown
+        roomId: selectedRoom,
+        roomName: roomObj ? (roomObj.name || roomObj.id) : selectedRoom
       };
 
       setSchedules(prev => [...prev, scheduleWithRoomName]);
 
-      // Reset form
+      // Nếu đang xem phòng khác thì chuyển view về phòng vừa tạo để user thấy kết quả
+      setViewRoomId(selectedRoom);
+
       setCourseName("")
       setLecturer("")
       setSelectedDays([])
@@ -117,9 +196,6 @@ export default function ScheduleTab() {
       setEndTime("")
       setEffectiveFrom("")
       setEffectiveTo("")
-      
-      // Không cần alert, UI tự cập nhật là đủ feedback rồi
-      // alert("Schedule created successfully!") 
 
     } catch (err) {
       console.error("Create error:", err)
@@ -129,24 +205,7 @@ export default function ScheduleTab() {
     }
   }
 
-  async function handleDeleteSchedule(id: string) {
-    if (!confirm("Are you sure you want to delete this schedule?")) return
-    
-    // 1. Optimistic Update: Xóa khỏi UI ngay lập tức
-    const previousSchedules = [...schedules];
-    setSchedules(prev => prev.filter(s => s.id !== id));
-
-    try {
-      // 2. Gọi API xóa
-      await deleteSchedule(id)
-    } catch (err) {
-      console.error(err)
-      alert("Failed to delete schedule.")
-      // Nếu lỗi, hoàn tác lại UI
-      setSchedules(previousSchedules);
-    }
-  }
-
+  // Logic Import Excel (Giữ nguyên)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -164,69 +223,69 @@ export default function ScheduleTab() {
 
         let successCount = 0;
         let errorCount = 0;
-        
+
         // Danh sách các lịch mới được tạo thành công để update UI
         const newSchedules: Schedule[] = [];
 
         for (const row of data) {
-            const roomName = row.Room || row.room;
-            const courseName = row.Course || row.course;
-            const lecturer = row.Lecturer || row.lecturer;
-            const weekdaysRaw = row.Weekdays || row.weekdays;
-            const startRaw = row.Start || row.start;
-            const endRaw = row.End || row.end;
-            const effFromRaw = row.EffectiveFrom || row.effectiveFrom || row.effective_from;
-            const effToRaw = row.EffectiveTo || row.effectiveTo || row.effective_to;
+          const roomName = row.Room || row.room;
+          const courseName = row.Course || row.course;
+          const lecturer = row.Lecturer || row.lecturer;
+          const weekdaysRaw = row.Weekdays || row.weekdays;
+          const startRaw = row.Start || row.start;
+          const endRaw = row.End || row.end;
+          const effFromRaw = row.EffectiveFrom || row.effectiveFrom || row.effective_from;
+          const effToRaw = row.EffectiveTo || row.effectiveTo || row.effective_to;
 
-            const room = rooms.find(r => r.name === roomName || r.id === roomName);
-            
-            if (room && courseName && startRaw && endRaw) {
-                try {
-                    const sTime = parseExcelDate(startRaw, true);
-                    const eTime = parseExcelDate(endRaw, true);
-                    
-                    let dayToSave = "";
-                    if (weekdaysRaw) {
-                        const parts = String(weekdaysRaw).split(',');
-                        if (parts.length > 0) {
-                            dayToSave = parts[0].trim().toUpperCase();
-                        }
-                    }
+          const room = rooms.find(r => r.name === roomName || r.id === roomName);
 
-                    const validDays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-                    if (!validDays.includes(dayToSave)) {
-                        errorCount++;
-                        continue;
-                    }
+          if (room && courseName && startRaw && endRaw) {
+            try {
+              const sTime = parseExcelDate(startRaw, true);
+              const eTime = parseExcelDate(endRaw, true);
 
-                    const effFrom = parseExcelDate(effFromRaw) || "2024-01-01";
-                    const effTo = parseExcelDate(effToRaw) || "2024-12-31";
-
-                    // Gọi API
-                    const created = await createSchedule(room.id, {
-                        courseName: String(courseName),
-                        lecturer: String(lecturer || ""),
-                        weekdays: [dayToSave],
-                        startTime: sTime,
-                        endTime: eTime,
-                        effectiveFrom: effFrom,
-                        effectiveTo: effTo
-                    });
-                    
-                    // Thêm vào danh sách tạm để update UI
-                    newSchedules.push({
-                        ...created,
-                        roomName: room.name || room.id
-                    });
-
-                    successCount++;
-                } catch (err) {
-                    console.error("Failed to import row:", row, err);
-                    errorCount++;
+              let dayToSave = "";
+              if (weekdaysRaw) {
+                const parts = String(weekdaysRaw).split(',');
+                if (parts.length > 0) {
+                  dayToSave = parts[0].trim().toUpperCase();
                 }
-            } else {
+              }
+
+              const validDays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+              if (!validDays.includes(dayToSave)) {
                 errorCount++;
+                continue;
+              }
+
+              const effFrom = parseExcelDate(effFromRaw) || "2024-01-01";
+              const effTo = parseExcelDate(effToRaw) || "2024-12-31";
+
+              // Gọi API
+              const created = await createSchedule(room.id, {
+                courseName: String(courseName),
+                lecturer: String(lecturer || ""),
+                weekdays: [dayToSave],
+                startTime: sTime,
+                endTime: eTime,
+                effectiveFrom: effFrom,
+                effectiveTo: effTo
+              });
+
+              // Thêm vào danh sách tạm để update UI
+              newSchedules.push({
+                ...created,
+                roomName: room.name || room.id
+              });
+
+              successCount++;
+            } catch (err) {
+              console.error("Failed to import row:", row, err);
+              errorCount++;
             }
+          } else {
+            errorCount++;
+          }
         }
 
         // Cập nhật UI ngay lập tức với các lịch vừa import
@@ -239,7 +298,7 @@ export default function ScheduleTab() {
         alert("Failed to process Excel file.");
       } finally {
         setImporting(false);
-        if (fileInputRef.current) fileInputRef.current.value = ""; 
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
     reader.readAsBinaryString(file);
@@ -248,6 +307,18 @@ export default function ScheduleTab() {
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
+
+
+  // Logic thêm Exception thủ công (click vào ô trống trên bảng)
+  const handleAddManualException = (date: Date, startT: string, endT: string) => {
+    setSelectedRoom(viewRoomId);
+    setEffectiveFrom(format(date, "yyyy-MM-dd"));
+    setEffectiveTo(format(date, "yyyy-MM-dd"));
+    setStartTime(startT);
+    setEndTime(endT);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
 
   if (loading)
     return (
@@ -259,7 +330,7 @@ export default function ScheduleTab() {
 
   return (
     <div className="px-4 pt-6 pb-20 space-y-8">
-      
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
@@ -280,27 +351,27 @@ export default function ScheduleTab() {
         <p className="text-sm text-gray-600 mb-4">
           Upload Excel file with columns: Room, Course, Lecturer, Weekdays, Start, End, EffectiveFrom, EffectiveTo
         </p>
-        
-        <input 
-            type="file" 
-            accept=".xlsx, .xls" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-            style={{ display: 'none' }} 
+
+        <input
+          type="file"
+          accept=".xlsx, .xls"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
         />
 
-        <button 
-            onClick={triggerFileInput}
-            disabled={importing}
-            className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium text-sm flex items-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+        <button
+          onClick={triggerFileInput}
+          disabled={importing}
+          className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors font-medium text-sm flex items-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {importing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Importing...
-              </>
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Importing...
+            </>
           ) : (
-              "Choose Excel File"
+            "Choose Excel File"
           )}
         </button>
       </div>
@@ -390,11 +461,10 @@ export default function ScheduleTab() {
                 <button
                   key={day}
                   onClick={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    selectedDays.includes(day)
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedDays.includes(day)
                       ? "bg-emerald-600 text-white shadow-md shadow-emerald-200 scale-105"
                       : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                  }`}
+                    }`}
                 >
                   {day}
                 </button>
@@ -441,58 +511,46 @@ export default function ScheduleTab() {
         </div>
       </div>
 
-      {/* Schedule List */}
-      <div className="mb-8">
-        <h3 className="font-semibold text-gray-900 mb-4">All Schedules</h3>
-        <div className="space-y-3">
-          {schedules.length === 0 ? (
-             <div className="text-center py-8 text-gray-400 text-sm border border-dashed border-gray-200 rounded-xl bg-gray-50">No schedules found</div>
+      {/* 3. TIMETABLE VIEW (FILTER & TABLE) */}
+      <div className="space-y-4">
+        {/* Header & Filter */}
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <Clock size={20} className="text-emerald-600" />
+            Thời Khóa Biểu Chi Tiết
+          </h3>
+
+          {/* Filter Dropdown */}
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+            <Filter size={16} className="text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500 uppercase">Xem phòng:</span>
+            <select
+              value={viewRoomId}
+              onChange={(e) => setViewRoomId(e.target.value)}
+              className="bg-transparent text-sm font-bold text-gray-800 outline-none min-w-[100px]"
+            >
+              {rooms.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Timetable Component */}
+        {/* Pass filteredSchedules vào RoomSchedule để hiển thị */}
+        <div className="glass-panel p-1 border border-emerald-100 bg-white rounded-2xl shadow-sm overflow-hidden h-[700px]">
+          {viewRoomId ? (
+            <RoomSchedule
+              schedules={filteredSchedules}
+              roomId={viewRoomId}
+              onAddException={handleAddManualException}
+              onUpdateSchedule={handleUpdateScheduleException}
+            />
           ) : (
-             schedules.map((schedule) => (
-            <div key={schedule.id} className="glass-panel p-5 border-l-4 border-l-emerald-500 bg-white rounded-xl shadow-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase">{schedule.roomName}</p>
-                  <h4 className="font-semibold text-gray-900 mt-1">{schedule.courseName}</h4>
-                  <p className="text-sm text-gray-600">{schedule.lecturer}</p>
-                </div>
-                <button 
-                  onClick={() => handleDeleteSchedule(schedule.id)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Delete Schedule"
-                >
-                  <Trash2 size={18} className="text-gray-400 hover:text-red-600" />
-                </button>
-              </div>
-              
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                {/* Fix lỗi toString() trên type never bằng String() */}
-                {(Array.isArray(schedule.weekdays) 
-                    ? schedule.weekdays 
-                    : String(schedule.weekdays || "").split(',')
-                 ).map((day) => (
-                  <span
-                    key={day}
-                    className="px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded"
-                  >
-                    {day.trim().slice(0, 3)}
-                  </span>
-                ))}
-              </div>
-              
-              <div className="flex justify-between items-end pt-2 border-t border-gray-50 mt-2">
-                  <p className="text-sm text-gray-600 flex items-center gap-1">
-                    <Clock size={14} className="text-emerald-600"/> 
-                    {schedule.startTime ? schedule.startTime.substring(0, 5) : "--:--"} – {schedule.endTime ? schedule.endTime.substring(0, 5) : "--:--"}
-                  </p>
-                  {schedule.effectiveFrom && (
-                      <p className="text-[10px] text-gray-400">
-                          {schedule.effectiveFrom} → {schedule.effectiveTo}
-                      </p>
-                  )}
-              </div>
+            <div className="h-full flex flex-col items-center justify-center text-gray-400">
+              <p>Vui lòng chọn phòng để xem lịch</p>
             </div>
-          )))}
+          )}
         </div>
       </div>
 

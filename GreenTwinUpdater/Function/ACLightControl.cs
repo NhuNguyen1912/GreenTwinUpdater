@@ -537,7 +537,13 @@ namespace GreenTwinUpdater.Function
         private async Task<(bool within, DateTimeOffset? startLocal, DateTimeOffset? endLocal)>
             FindActiveScheduleViaRelationsAsync(string roomId, string weekdayToken, DateTimeOffset nowLocal, CancellationToken ct)
         {
-            var active = (within: false, startLocal: (DateTimeOffset?)null, endLocal: (DateTimeOffset?)null);
+            // Biến cờ để theo dõi logic
+            bool hasRegularSchedule = false;
+            bool hasCancellation = false;
+
+            // Lưu lại thời gian của lịch hợp lệ để dùng cho logic ân hạn (Grace Period)
+            DateTimeOffset? validStart = null;
+            DateTimeOffset? validEnd = null;
 
             await foreach (var rel in _adt.GetRelationshipsAsync<BasicRelationship>(roomId, "hasSchedule", ct))
             {
@@ -547,12 +553,16 @@ namespace GreenTwinUpdater.Function
                     var resp = await _adt.GetDigitalTwinAsync<BasicDigitalTwin>(schedId, ct);
                     var s = resp.Value;
 
+                    // 1. Kiểm tra Enable
                     bool isEnabled = GetBool(s.Contents, "isEnabled") ?? false;
                     if (!isEnabled) continue;
 
+                    // 2. Kiểm tra Thứ (Weekday)
                     string wd = GetString(s.Contents, "weekdays") ?? "";
-                    if (!string.Equals(wd, weekdayToken, StringComparison.OrdinalIgnoreCase)) continue;
+                    // Logic: Chuỗi weekdays phải chứa token hôm nay (VD: "MON,WED" chứa "MON")
+                    if (!wd.Contains(weekdayToken, StringComparison.OrdinalIgnoreCase)) continue;
 
+                    // 3. Kiểm tra Giờ (Time)
                     var startTs = GetTimeAsTimeSpan(s.Contents, "startTime");
                     var endTs = GetTimeAsTimeSpan(s.Contents, "endTime");
                     if (!startTs.HasValue || !endTs.HasValue) continue;
@@ -565,18 +575,59 @@ namespace GreenTwinUpdater.Function
                         nowLocal.Year, nowLocal.Month, nowLocal.Day,
                         endTs.Value.Hours, endTs.Value.Minutes, endTs.Value.Seconds, nowLocal.Offset);
 
-                    bool within = nowLocal >= startLocal && nowLocal < endLocal;
-                    if (within)
+                    // Kiểm tra xem hiện tại có nằm trong khung giờ không
+                    bool isTimeMatch = nowLocal >= startLocal && nowLocal < endLocal;
+                    if (!isTimeMatch) continue;
+
+                    // 4. MỚI: Kiểm tra Ngày hiệu lực (Effective Date)
+                    // Nếu không check cái này, lịch nghỉ ngày mai sẽ làm tắt điện hôm nay!
+                    string effFromStr = GetString(s.Contents, "effectiveFrom");
+                    string effToStr = GetString(s.Contents, "effectiveTo");
+
+                    if (DateTime.TryParse(effFromStr, out var effFrom))
                     {
-                        return (true, startLocal, endLocal);
+                        if (nowLocal.Date < effFrom.Date) continue; // Chưa đến ngày
+                    }
+                    if (DateTime.TryParse(effToStr, out var effTo))
+                    {
+                        if (nowLocal.Date > effTo.Date) continue; // Đã quá ngày
+                    }
+
+                    // 5. MỚI: Kiểm tra tên môn học xem có phải là "Canceled/Nghỉ" không
+                    string courseName = GetString(s.Contents, "courseName") ?? "";
+                    bool isCancelSchedule = courseName.Contains("cancel", StringComparison.OrdinalIgnoreCase) ||
+                                            courseName.Contains("nghỉ", StringComparison.OrdinalIgnoreCase) ||
+                                            courseName.Contains("off", StringComparison.OrdinalIgnoreCase);
+
+                    if (isCancelSchedule)
+                    {
+                        // Nếu tìm thấy bất kỳ lịch "Hủy" nào đang active -> Đánh dấu ngay
+                        hasCancellation = true;
+                        // Có thể break luôn nếu muốn ưu tiên tuyệt đối
+                    }
+                    else
+                    {
+                        // Đây là lịch học bình thường
+                        hasRegularSchedule = true;
+                        validStart = startLocal;
+                        validEnd = endLocal;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to read or parse schedule twin {schedId} for room {room}", schedId, roomId);
+                    _logger.LogWarning(ex, "Failed to read schedule {schedId}", schedId);
                 }
             }
-            return active;
+
+            // LOGIC QUYẾT ĐỊNH CUỐI CÙNG:
+            // Chỉ trả về TRUE nếu: Có lịch thường VÀ KHÔNG CÓ lịch hủy
+            if (hasRegularSchedule && !hasCancellation)
+            {
+                return (true, validStart, validEnd);
+            }
+
+            // Trường hợp còn lại (Không có lịch, hoặc Có lịch nhưng bị Hủy) -> Trả về false
+            return (false, null, null);
         }
 
         private async Task<List<BasicDigitalTwin>> GetDevicesViaRelationsAsync(
