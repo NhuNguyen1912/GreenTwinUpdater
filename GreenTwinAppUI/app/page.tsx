@@ -1,13 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import HomeTab from "@/components/tabs/home-tab"
 import RoomsTab from "@/components/tabs/rooms-tab"
 import ScheduleTab from "@/components/tabs/schedule-tab"
 import { Home, Building2, Calendar } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
+import { useRouter } from "next/navigation"
 
 export default function GreenTwinApp() {
+  const { isAuthenticated, user, logout } = useAuth() // <-- Lấy user
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<"home" | "rooms" | "schedule">("home")
+
+  // Check login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/login")
+    }
+  }, [isAuthenticated, router])
+
+  if (!isAuthenticated) return null; // Tránh render nội dung khi chưa check xong
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">

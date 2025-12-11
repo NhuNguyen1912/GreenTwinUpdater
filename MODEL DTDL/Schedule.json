@@ -1,0 +1,105 @@
+{
+  "@id": "dtmi:com:smartbuilding:Schedule;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "displayName": "Schedule",
+  "description": "A recurring class schedule entry for a room.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "courseName",
+      "schema": "string",
+      "displayName": "Course Name",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "lecturer",
+      "schema": "string",
+      "displayName": "Lecturer",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "startTime",
+      "schema": "time",
+      "displayName": "Start Time",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "endTime",
+      "schema": "time",
+      "displayName": "End Time",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "weekdays",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          {
+            "name": "MON",
+            "displayName": "Monday",
+            "enumValue": "MON"
+          },
+          {
+            "name": "TUE",
+            "displayName": "Tuesday",
+            "enumValue": "TUE"
+          },
+          {
+            "name": "WED",
+            "displayName": "Wednesday",
+            "enumValue": "WED"
+          },
+          {
+            "name": "THU",
+            "displayName": "Thursday",
+            "enumValue": "THU"
+          },
+          {
+            "name": "FRI",
+            "displayName": "Friday",
+            "enumValue": "FRI"
+          },
+          {
+            "name": "SAT",
+            "displayName": "Saturday",
+            "enumValue": "SAT"
+          },
+          {
+            "name": "SUN",
+            "displayName": "Sunday",
+            "enumValue": "SUN"
+          }
+        ]
+      },
+      "displayName": "Weekdays",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "effectiveFrom",
+      "schema": "date",
+      "displayName": "Effective From",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "effectiveTo",
+      "schema": "date",
+      "displayName": "Effective To",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "isEnabled",
+      "schema": "boolean",
+      "displayName": "Enabled",
+      "writable": true
+    }
+  ]
+}

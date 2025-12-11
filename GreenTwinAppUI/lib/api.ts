@@ -61,7 +61,7 @@ export type LightState = {
   overrideExpiresOnUtc?: string | null;
   overrideExpiresOnLocal?: string | null;
   overrideExpiresOnLocalFormatted?: string | null;
-
+  lastUpdatedBy?: string | null;
   controlMode?: "manual-override" | "auto-schedule";
 };
 
@@ -301,6 +301,7 @@ export type UpdateLightPayload = {
   powerState?: boolean;
   brightness?: number;
   durationMinutes?: number;
+  user?: string;
 };
 
 export async function updateLightSettings(

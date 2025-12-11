@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { X, Lightbulb, Clock, Zap, Power, Sun } from "lucide-react"
+import { X, Lightbulb, Clock, Zap, Power, Sun, User } from "lucide-react"
 import { getLightState, updateLightSettings, type LightState } from "@/lib/api"
-import { CURRENT_USER } from "@/lib/user"
+import { useAuth } from "@/components/auth-provider"
 
 interface LightDetailModalProps {
   device: any;
@@ -13,6 +13,9 @@ interface LightDetailModalProps {
 export default function LightDetailModal({ device, onClose }: LightDetailModalProps) {
   const roomId = device.roomId; // Lấy roomId từ prop device
   const deviceId = device.id;
+
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
   const [lightState, setLightState] = useState<LightState | null>(null);
   
@@ -57,6 +60,10 @@ export default function LightDetailModal({ device, onClose }: LightDetailModalPr
   }, [roomId, deviceId]);
 
   async function onApplyChanges() {
+    if (!isAdmin) {
+      alert("Bạn không có quyền điều khiển thiết bị này. Vui lòng đăng nhập quyền Admin.")
+      return
+    }
     try {
       setSaving(true);
       isSavingRef.current = true;
@@ -65,6 +72,7 @@ export default function LightDetailModal({ device, onClose }: LightDetailModalPr
         powerState: localPower,
         brightness: localBrightness,
         durationMinutes: overrideDuration,
+        user: user?.username || "Unknown Admin",
       });
 
       await fetchData();
@@ -118,9 +126,14 @@ export default function LightDetailModal({ device, onClose }: LightDetailModalPr
                 {isOverride ? "Manual Override Active" : "Auto Schedule Mode"}
               </p>
               {isOverride ? (
-                <p className="text-xs text-green-700 mt-0.5">
-                  Ends at <strong>{lightState?.overrideExpiresOnLocalFormatted?.split(' ')[0]}</strong> • By {lightState?.controlMode === 'manual-override' ? CURRENT_USER : 'System'}
-                </p>
+                <div className="mt-1 text-xs text-green-700 space-y-0.5">
+                  <p>
+                    Ends at <strong>{lightState?.overrideExpiresOnLocalFormatted?.split(' ')[0]}</strong>
+                  </p>
+                  <p className="flex items-center gap-1 opacity-90">
+                    <User size={10} /> By {lightState?.lastUpdatedBy || "User"}
+                  </p>
+                </div>
               ) : (
                 <p className="text-xs text-gray-500 mt-0.5">Light is controlled automatically.</p>
               )}
@@ -213,12 +226,16 @@ export default function LightDetailModal({ device, onClose }: LightDetailModalPr
         {/* Footer Actions - Giữ màu Xanh lá */}
         <div className="p-5 border-t border-gray-100 bg-white sticky bottom-0 z-10">
           <button
-            onClick={onApplyChanges}
-            disabled={saving}
-            className="w-full py-3.5 rounded-xl bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold text-base shadow-lg shadow-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {saving ? "Applying..." : "Apply Settings"}
-          </button>
+        onClick={onApplyChanges}
+        disabled={saving || !isAdmin} // <-- Chặn nút Apply
+        className={`w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2
+            ${isAdmin 
+                ? "bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-green-200" 
+                : "bg-gray-400 cursor-not-allowed shadow-none"
+            }`}
+    >
+        {saving ? "Saving..." : isAdmin ? "Apply Settings" : "Admin Rights Required"}
+    </button>
         </div>
 
       </div>

@@ -1,0 +1,53 @@
+{
+  "@id": "dtmi:com:smartbuilding:MLModel;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "displayName": "Machine Learning Model",
+  "description": "Metadata for ML models used to predict occupancy, energy or comfort.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "modelName",
+      "schema": "string",
+      "displayName": "Model Name"
+    },
+    {
+      "@type": "Property",
+      "name": "version",
+      "schema": "string",
+      "displayName": "Model Version"
+    },
+    {
+      "@type": "Property",
+      "name": "target",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          {
+            "name": "occupancy",
+            "displayName": "Occupancy",
+            "enumValue": "occupancy"
+          },
+          {
+            "name": "energy",
+            "displayName": "Energy",
+            "enumValue": "energy"
+          },
+          {
+            "name": "comfort",
+            "displayName": "Comfort",
+            "enumValue": "comfort"
+          }
+        ]
+      },
+      "displayName": "Target"
+    },
+    {
+      "@type": "Property",
+      "name": "lastTrainedOn",
+      "schema": "dateTime",
+      "displayName": "Last Trained On"
+    }
+  ]
+}

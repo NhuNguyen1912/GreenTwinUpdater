@@ -1,0 +1,34 @@
+{
+  "@id": "dtmi:com:smartbuilding:EnergyMeter;2",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Device;1"
+  ],
+  "displayName": "Energy Meter",
+  "description": "Measures power and energy consumption.",
+  "contents": [
+    {
+      "@type": "Telemetry",
+      "name": "powerW",
+      "schema": "double",
+      "displayName": "Power (W)"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "energyKWh",
+      "schema": "double",
+      "displayName": "Energy (kWh)"
+    },
+    {
+      "@type": "Property",
+      "name": "currentPowerW",
+      "schema": "double"
+    },
+    {
+      "@type": "Property",
+      "name": "currentEnergyKWh",
+      "schema": "double"
+    }
+  ]
+}

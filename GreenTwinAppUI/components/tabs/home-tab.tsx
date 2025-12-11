@@ -1,15 +1,25 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Zap, Building2, ThermometerSun } from "lucide-react"
+import { User, Zap, Building2, ThermometerSun, LogOut } from "lucide-react"
 import RoomCard from "@/components/room-card"
 import RoomDetailModal from "@/components/room-detail-modal"
 import { getRooms, type Room } from "@/lib/api"
+import { useAuth } from "@/components/auth-provider"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function HomeTab() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
+  const { user, logout } = useAuth()
 
   useEffect(() => {
     async function load() {
@@ -53,11 +63,37 @@ export default function HomeTab() {
           <h1 className="text-3xl font-bold text-gray-900 mb-1">
               TDTU Campus
           </h1>
-          <p className="text-sm text-gray-600">Today, {dateString}</p>
+          {/* Hiển thị User ở đây */}
+          <div className="text-sm text-gray-600">
+            <span className="block">{dateString}</span>
+            <span className="block mt-1 font-medium text-green-700">
+              Hi, {user?.username || "Guest"} ({user?.role === 'admin' ? 'Admin' : 'View Only'})
+            </span>
+          </div>
         </div>
-        <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
-          <User size={20} className="text-gray-600" />
-        </button>
+
+        {/* Avatar với Dropdown Logout */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-green-100 hover:text-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+              <User size={20} className="text-gray-600" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>Tài khoản</DropdownMenuLabel>
+            <DropdownMenuItem disabled>
+              {user?.username}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={logout} 
+              className="text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Đăng xuất</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Overview */}

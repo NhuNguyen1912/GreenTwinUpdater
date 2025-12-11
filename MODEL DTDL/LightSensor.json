@@ -1,0 +1,24 @@
+{
+  "@id": "dtmi:com:smartbuilding:LightSensor;2",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Device;1"
+  ],
+  "displayName": "Light Sensor",
+  "description": "Reports illuminance in lux.",
+  "contents": [
+    {
+      "@type": "Telemetry",
+      "name": "illuminanceTele",
+      "schema": "double",
+      "displayName": "Illuminance (lux)"
+    },
+    {
+      "@type": "Property",
+      "name": "illuminance",
+      "schema": "float",
+      "writable": true
+    }
+  ]
+}

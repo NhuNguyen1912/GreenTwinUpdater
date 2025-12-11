@@ -1,0 +1,44 @@
+{
+  "@id": "dtmi:com:smartbuilding:LightSwitch;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Device;1"
+  ],
+  "displayName": "Light Switch",
+  "description": "Controllable light actuator.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "powerState",
+      "schema": "boolean",
+      "displayName": "Power On/Off",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "brightness",
+      "schema": "integer",
+      "displayName": "Brightness (0-100)",
+      "writable": true
+    },
+    {
+      "@type": "Command",
+      "name": "setPower",
+      "request": {
+        "name": "state",
+        "schema": "boolean"
+      },
+      "displayName": "Set Power"
+    },
+    {
+      "@type": "Command",
+      "name": "setBrightness",
+      "request": {
+        "name": "level",
+        "schema": "integer"
+      },
+      "displayName": "Set Brightness"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { X, Wind, Minus, Plus, Clock, User, Zap, Power } from "lucide-react"
 import { getAcState, updateAcSettings, type AcState } from "@/lib/api"
-import { CURRENT_USER } from "@/lib/user"
+import { useAuth } from "@/components/auth-provider"
 
 interface ACDetailModalProps {
   device: any;
@@ -13,6 +13,9 @@ interface ACDetailModalProps {
 
 export default function ACDetailModal({ device, roomId, onClose }: ACDetailModalProps) {
   const deviceId = device.id;
+
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
   // Data State
   const [acState, setAcState] = useState<AcState | null>(null);
@@ -85,6 +88,10 @@ export default function ACDetailModal({ device, roomId, onClose }: ACDetailModal
   };
 
   async function onApplyChanges() {
+    if (!isAdmin) {
+      alert("Bạn không có quyền điều khiển thiết bị này. Vui lòng đăng nhập quyền Admin.")
+      return
+    }
     try {
       setSaving(true);
       isSavingRef.current = true;
@@ -94,7 +101,7 @@ export default function ACDetailModal({ device, roomId, onClose }: ACDetailModal
         mode: localMode,
         fanSpeed: localFan,
         targetTemperature: localTemp,
-        user: CURRENT_USER,
+        user: user?.username || "Unknown Admin",
         durationMinutes: overrideDuration,
       });
 
@@ -322,19 +329,16 @@ export default function ACDetailModal({ device, roomId, onClose }: ACDetailModal
         {/* Footer Actions */}
         <div className="p-5 border-t border-gray-100 bg-white sticky bottom-0 z-10">
           <button
-            onClick={onApplyChanges}
-            disabled={saving}
-            className="w-full py-3.5 rounded-xl bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold text-base shadow-lg shadow-green-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Applying...</span>
-              </>
-            ) : (
-              "Apply Settings"
-            )}
-          </button>
+        onClick={onApplyChanges}
+        disabled={saving || !isAdmin} // <-- Chặn nút Apply
+        className={`w-full py-3.5 rounded-xl text-white font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2
+            ${isAdmin 
+                ? "bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-green-200" 
+                : "bg-gray-400 cursor-not-allowed shadow-none"
+            }`}
+    >
+        {saving ? "Saving..." : isAdmin ? "Apply Settings" : "Admin Rights Required"}
+    </button>
         </div>
 
       </div>

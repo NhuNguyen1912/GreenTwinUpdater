@@ -1,0 +1,48 @@
+{
+  "@id": "dtmi:com:smartbuilding:Device;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "displayName": "Device",
+  "description": "Base for sensors, actuators and gateways.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "deviceId",
+      "schema": "string",
+      "displayName": "Device ID"
+    },
+    {
+      "@type": "Property",
+      "name": "model",
+      "schema": "string",
+      "displayName": "Model"
+    },
+    {
+      "@type": "Property",
+      "name": "status",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          {
+            "name": "online",
+            "displayName": "Online",
+            "enumValue": "online"
+          },
+          {
+            "name": "offline",
+            "displayName": "Offline",
+            "enumValue": "offline"
+          },
+          {
+            "name": "error",
+            "displayName": "Error",
+            "enumValue": "error"
+          }
+        ]
+      },
+      "displayName": "Status",
+      "writable": true
+    }
+  ]
+}

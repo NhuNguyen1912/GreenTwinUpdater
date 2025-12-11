@@ -1,0 +1,24 @@
+{
+  "@id": "dtmi:com:smartbuilding:MotionSensor;2",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Device;1"
+  ],
+  "displayName": "Motion Sensor",
+  "description": "Detects motion presence.",
+  "contents": [
+    {
+      "@type": "Telemetry",
+      "name": "motionTele",
+      "schema": "boolean",
+      "displayName": "Motion Detected"
+    },
+    {
+      "@type": "Property",
+      "name": "motion",
+      "schema": "boolean",
+      "writable": true
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "@id": "dtmi:com:smartbuilding:MLService;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Device;1"
+  ],
+  "displayName": "ML Service Device",
+  "description": "Logical device publishing prediction telemetry for rooms.",
+  "contents": [
+    {
+      "@type": "Telemetry",
+      "name": "occupancyPrediction",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "roomTwinId",
+            "schema": "string"
+          },
+          {
+            "name": "predictedOccupancy",
+            "schema": "integer"
+          },
+          {
+            "name": "confidence",
+            "schema": "double"
+          },
+          {
+            "name": "predictionFor",
+            "schema": "dateTime"
+          }
+        ]
+      },
+      "displayName": "Predicted Occupancy"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "energyPrediction",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "roomTwinId",
+            "schema": "string"
+          },
+          {
+            "name": "predictedEnergyKWh",
+            "schema": "double"
+          },
+          {
+            "name": "confidence",
+            "schema": "double"
+          },
+          {
+            "name": "predictionFor",
+            "schema": "dateTime"
+          }
+        ]
+      },
+      "displayName": "Predicted Energy"
+    }
+  ]
+}

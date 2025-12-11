@@ -1,0 +1,30 @@
+{
+  "@id": "dtmi:com:smartbuilding:Building;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Space;1"
+  ],
+  "displayName": "Building",
+  "description": "Building containing floors and rooms.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "address",
+      "schema": "string",
+      "displayName": "Address"
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasFloor",
+      "target": "dtmi:com:smartbuilding:Floor;1",
+      "displayName": "Has Floor"
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasRoom",
+      "target": "dtmi:com:smartbuilding:Room;1",
+      "displayName": "Has Room (direct mapping if no floors)"
+    }
+  ]
+}

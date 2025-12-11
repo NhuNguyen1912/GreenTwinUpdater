@@ -1,0 +1,23 @@
+{
+  "@id": "dtmi:com:smartbuilding:TemperatureSensor;3",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Device;1"
+  ],
+  "displayName": "Temperature Sensor",
+  "description": "Reports ambient temperature.",
+  "contents": [
+    { "@type": "Telemetry", 
+    "name": "temperatureTele", 
+    "schema": "double", 
+    "displayName": "Temperature (°C)" 
+  },
+    {
+      "@type": "Property",
+      "name": "temperature",
+      "schema": "float",
+      "writable": true
+    }
+  ]
+}

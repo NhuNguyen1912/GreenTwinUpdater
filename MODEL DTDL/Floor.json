@@ -1,0 +1,24 @@
+{
+  "@id": "dtmi:com:smartbuilding:Floor;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Space;1"
+  ],
+  "displayName": "Floor",
+  "description": "A floor within a building.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "level",
+      "schema": "integer",
+      "displayName": "Level"
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasRoom",
+      "target": "dtmi:com:smartbuilding:Room;1",
+      "displayName": "Has Room"
+    }
+  ]
+}

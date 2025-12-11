@@ -1,0 +1,21 @@
+{
+  "@id": "dtmi:com:smartbuilding:Space;1",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "displayName": "Space",
+  "description": "Base type for physical spaces within a building.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "name",
+      "schema": "string",
+      "displayName": "Name"
+    },
+    {
+      "@type": "Property",
+      "name": "description",
+      "schema": "string",
+      "displayName": "Description"
+    }
+  ]
+}

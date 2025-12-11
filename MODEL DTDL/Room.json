@@ -1,0 +1,70 @@
+{
+  "@id": "dtmi:com:smartbuilding:Room;5",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [
+    "dtmi:com:smartbuilding:Space;1"
+  ],
+  "displayName": "Room",
+  "description": "A classroom or lab room within a building.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "roomNumber",
+      "schema": "string",
+      "displayName": "Room Number"
+    },
+    {
+      "@type": "Property",
+      "name": "capacity",
+      "schema": "integer",
+      "displayName": "Capacity",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "targetTemperature",
+      "schema": "double",
+      "displayName": "Target Temperature (°C)",
+      "description": "Desired temperature for the room, used as reference for all AC units.",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "targetLux",
+      "schema": "double",
+      "displayName": "Target Lux",
+      "writable": true
+    },
+    {
+      "@type": "Component",
+      "name": "policy",
+      "schema": "dtmi:com:smartbuilding:AutomationPolicy;1",
+      "displayName": "Automation Policy"
+    },
+    {
+      "@type": "Component",
+      "name": "metrics",
+      "schema": "dtmi:com:smartbuilding:RoomMetrics;3",
+      "displayName": "Metrics"
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasDevice",
+      "target": "dtmi:com:smartbuilding:Device;1",
+      "displayName": "Has Device"
+    },
+    {
+      "@type": "Relationship",
+      "name": "hasSchedule",
+      "target": "dtmi:com:smartbuilding:Schedule;1",
+      "displayName": "Has Schedule"
+    },
+    {
+      "@type": "Relationship",
+      "name": "predictedBy",
+      "target": "dtmi:com:smartbuilding:MLModel;1",
+      "displayName": "Predicted By"
+    }
+  ]
+}

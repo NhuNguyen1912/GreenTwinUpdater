@@ -1,0 +1,93 @@
+{
+  "@id": "dtmi:com:smartbuilding:ACUnit;3",
+  "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
+  "extends": [ "dtmi:com:smartbuilding:Device;1" ],
+  "displayName": "Air Conditioner Unit",
+  "description": "Controllable AC unit for a room.",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "powerState",
+      "schema": "boolean",
+      "displayName": "Power On/Off",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "mode",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          { "name": "cool", "displayName": "Cool", "enumValue": "cool" },
+          { "name": "eco",  "displayName": "Eco",  "enumValue": "eco"  }
+        ]
+      },
+      "displayName": "Mode",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "fanSpeed",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "string",
+        "enumValues": [
+          { "name": "auto",   "displayName": "Auto",   "enumValue": "auto" },
+          { "name": "low",    "displayName": "Low",    "enumValue": "low"  },
+          { "name": "medium", "displayName": "Medium", "enumValue": "medium" },
+          { "name": "high",   "displayName": "High",   "enumValue": "high" }
+        ]
+      },
+      "displayName": "Fan Speed",
+      "writable": true
+    },
+
+    {
+      "@type": "Property",
+      "name": "setpointTemperature",
+      "schema": "double",
+      "displayName": "Setpoint Temperature (°C)",
+      "writable": true
+    },
+
+    {
+      "@type": "Property",
+      "name": "minSetpoint",
+      "schema": "double",
+      "displayName": "Min Setpoint (°C)",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "maxSetpoint",
+      "schema": "double",
+      "displayName": "Max Setpoint (°C)",
+      "writable": true
+    },
+
+    {
+      "@type": "Command",
+      "name": "setPower",
+      "request": { "name": "state", "schema": "boolean" },
+      "displayName": "Set Power"
+    },
+    {
+      "@type": "Command",
+      "name": "setMode",
+      "request": {
+        "name": "mode",
+        "schema": {
+          "@type": "Enum",
+          "valueSchema": "string",
+          "enumValues": [
+            { "name": "cool", "displayName": "Cool", "enumValue": "cool" },
+            { "name": "eco",  "displayName": "Eco",  "enumValue": "eco"  }
+          ]
+        }
+      },
+      "displayName": "Set Mode"
+    }
+  ]
+}
