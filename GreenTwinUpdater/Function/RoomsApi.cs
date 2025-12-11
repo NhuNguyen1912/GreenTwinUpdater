@@ -34,44 +34,63 @@ namespace GreenTwinUpdater.Function
         // ==========================================
         [Function("GetRooms")]
         public async Task<HttpResponseData> GetRooms(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "rooms")]
-            HttpRequestData req,
-            FunctionContext ctx,
-            CancellationToken ct)
+    [HttpTrigger(AuthorizationLevel.Function, "get", Route = "rooms")]
+    HttpRequestData req,
+    FunctionContext ctx,
+    CancellationToken ct)
         {
             var rooms = new List<object>();
 
             try
             {
-                // Query rộng để đảm bảo bắt được mọi version của Room
-                string query =
-                    "SELECT * FROM DIGITALTWINS room " +
-                    "WHERE IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;7') " +
-                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;8') " +
-                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;9') " +
-                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;10') " +
-                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;11')";
+                // 1️⃣ Query tất cả Room
+                string roomQuery =
+                    "SELECT * FROM DIGITALTWINS room WHERE " +
+                    "IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;7') OR " +
+                    "IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;8') OR " +
+                    "IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;9') OR " +
+                    "IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;10') OR " +
+                    "IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;11')";
 
-                await foreach (BasicDigitalTwin twin in _adt.QueryAsync<BasicDigitalTwin>(query, cancellationToken: ct))
+                await foreach (BasicDigitalTwin twin in _adt.QueryAsync<BasicDigitalTwin>(roomQuery, ct))
                 {
                     try
                     {
                         var contents = twin.Contents;
 
-                        // 1. Thông tin cơ bản
-                        string name = GetString(contents, "name") ?? GetString(contents, "roomNumber") ?? twin.Id;
-                        string building = GetString(contents, "building") ?? "Unknown";
-                        string floor = GetString(contents, "floor") ?? "1";
+                        // ===== BASIC INFO =====
+                        string name =
+                            GetString(contents, "name") ??
+                            GetString(contents, "roomNumber") ??
+                            twin.Id;
+
+                        // ===== FLOOR & BUILDING (SAFE QUERIES) =====
+                        string floorName = "Unknown";
+                        string buildingName = "Unknown";
+
+                        var floorId = await GetFloorIdOfRoomAsync(twin.Id, ct);
+                        if (!string.IsNullOrEmpty(floorId))
+                        {
+                            floorName = await GetTwinNameAsync(floorId, ct) ?? floorId;
+
+                            var buildingId = await GetBuildingIdOfFloorAsync(floorId, ct);
+                            if (!string.IsNullOrEmpty(buildingId))
+                            {
+                                buildingName = await GetTwinNameAsync(buildingId, ct) ?? buildingId;
+                            }
+                        }
+
+                        // ===== TARGETS =====
                         double? targetTemp = GetDouble(contents, "targetTemperature");
                         double? targetLux = GetDouble(contents, "targetLux");
 
+                        // ===== METRICS =====
                         double? currentTemp = null;
                         double? currentLux = null;
                         double? currentHumidity = null;
                         double? currentPowerW = null;
                         double? currentEnergyKWh = null;
                         string? lastMotionUtc = null;
-
 
                         if (contents.TryGetValue("metrics", out var metricsRaw) && metricsRaw is not null)
                         {
@@ -83,7 +102,6 @@ namespace GreenTwinUpdater.Function
                                 currentPowerW = GetDoubleFromJson(je, "currentPowerW");
                                 currentEnergyKWh = GetDoubleFromJson(je, "currentEnergyKWh");
                                 lastMotionUtc = GetStringFromJson(je, "lastMotionUtc");
-
                             }
                             else if (metricsRaw is BasicDigitalTwinComponent comp)
                             {
@@ -93,48 +111,49 @@ namespace GreenTwinUpdater.Function
                                 currentPowerW = GetDouble(comp.Contents, "currentPowerW");
                                 currentEnergyKWh = GetDouble(comp.Contents, "currentEnergyKWh");
                                 lastMotionUtc = GetString(comp.Contents, "lastMotionUtc");
-
                             }
                         }
 
-                        // 4. Tổng hợp & Làm tròn số
+                        // ===== SCHEDULE =====
+                        var scheduleStatus = await GetRoomScheduleStatusAsync(twin.Id, ct);
+
+                        // ===== RESPONSE =====
                         rooms.Add(new
                         {
                             id = twin.Id,
                             name,
-                            building,
-                            floor,
+                            building = buildingName,
+                            floor = floorName,
 
-                            // Làm tròn 1 chữ số thập phân
                             targetTemperature = Round(targetTemp),
                             targetLux = Round(targetLux),
 
                             currentTemperature = Round(currentTemp),
                             currentIlluminance = Round(currentLux),
-
-                            // QUAN TRỌNG: Đổi tên key thành 'lastMotionUtc' cho khớp với Frontend
-                            lastMotionUtc = lastMotionUtc,
+                            lastMotionUtc,
 
                             currentHumidity = Round(currentHumidity),
                             currentPowerW = Round(currentPowerW),
                             currentEnergyKWh = Round(currentEnergyKWh),
                             motionDetected = lastMotionUtc != null,
 
-
-                            inClass = false // Logic check lịch (nếu có)
+                            inClass = scheduleStatus.InClass,
+                            courseName = scheduleStatus.Course,
+                            lecturerName = scheduleStatus.Lecturer,
+                            nextClass = scheduleStatus.NextClass
                         });
                     }
                     catch (Exception exInner)
                     {
-                        _logger.LogError($"Error processing room {twin.Id}: {exInner.Message}");
+                        _logger.LogError(exInner, "Error processing room {RoomId}", twin.Id);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"CRITICAL ERROR in GetRooms: {ex.Message}");
+                _logger.LogError(ex, "CRITICAL ERROR in GetRooms");
                 var err = req.CreateResponse(HttpStatusCode.InternalServerError);
-                await err.WriteStringAsync($"Error: {ex.Message}");
+                await err.WriteStringAsync(ex.Message);
                 return err;
             }
 
@@ -142,6 +161,7 @@ namespace GreenTwinUpdater.Function
             await res.WriteAsJsonAsync(rooms);
             return res;
         }
+
         // ==========================================
         // 2. CREATE SCHEDULE
         // ==========================================
@@ -474,6 +494,229 @@ namespace GreenTwinUpdater.Function
         {
             if (!obj.TryGetProperty(prop, out var el)) return null;
             return el.ToString();
+        }
+
+
+        private async Task<(bool InClass, string? Course, string? Lecturer, string? NextClass)> GetRoomScheduleStatusAsync(string roomId, CancellationToken ct)
+        {
+            string query =
+  "SELECT T.$dtId AS sid " +
+  "FROM DIGITALTWINS R " +
+  "JOIN T RELATED R.hasSchedule " +
+  $"WHERE R.$dtId = '{roomId}' " +
+  "AND IS_OF_MODEL(T, 'dtmi:com:smartbuilding:Schedule;1') " +
+  "AND T.isEnabled = true";
+
+            var scheduleIds = new List<string>();
+            await foreach (var row in _adt.QueryAsync<JsonElement>(query, ct))
+            {
+                if (row.TryGetProperty("sid", out var sidEl))
+                {
+                    var sid = sidEl.GetString();
+                    if (!string.IsNullOrWhiteSpace(sid)) scheduleIds.Add(sid);
+                }
+            }
+
+            var schedules = new List<BasicDigitalTwin>();
+            foreach (var sid in scheduleIds)
+            {
+                var twin = (await _adt.GetDigitalTwinAsync<BasicDigitalTwin>(sid, ct)).Value;
+                schedules.Add(twin);
+            }
+
+
+            // Lấy giờ Việt Nam (UTC+7)
+            var nowUtc = DateTimeOffset.UtcNow;
+            TimeZoneInfo tz;
+            try { tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"); }
+            catch { tz = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"); }
+
+            var now = TimeZoneInfo.ConvertTime(nowUtc, tz);
+            var today = now.Date;
+
+            // 1. Kiểm tra xem CÓ ĐANG HỌC KHÔNG?
+            foreach (var s in schedules)
+            {
+                if (!IsScheduleEffective(s, today)) continue;
+                if (!IsScheduleDay(s, now.DayOfWeek)) continue;
+
+                var (start, end) = GetScheduleTime(s, today);
+                // Nếu hiện tại nằm trong khung giờ học (có thể +/- 15p nếu muốn logic ân hạn, ở đây lấy chính xác)
+                if (now >= start && now < end)
+                {
+                    string course = GetString(s.Contents, "courseName");
+                    string lecturer = GetString(s.Contents, "lecturer");
+                    // Nếu lớp bị hủy (tên có chữ Cancel/Nghỉ) -> Không tính là đang học
+                    if (course != null && (course.Contains("Nghỉ") || course.Contains("Cancel")))
+                    {
+                        continue;
+                    }
+                    return (true, course, lecturer, null);
+                }
+            }
+
+            // 2. Nếu KHÔNG học, tìm LỚP TIẾP THEO (trong vòng 7 ngày tới)
+            // 2. Nếu KHÔNG học, tìm LỚP TIẾP THEO (trong vòng 7 ngày tới)
+            for (int i = 0; i < 7; i++)
+            {
+                var currentDay = today.AddDays(i);
+
+                var candidates = new List<(DateTimeOffset start, string? course, string? lecturer)>();
+
+                foreach (var s in schedules)
+                {
+                    if (!IsScheduleEffective(s, currentDay)) continue;
+                    if (!IsScheduleDay(s, currentDay.DayOfWeek)) continue;
+
+                    var (start, _) = GetScheduleTime(s, currentDay);
+
+                    if (start > now)
+                    {
+                        candidates.Add((
+                            start,
+                            GetString(s.Contents, "courseName"),
+                            GetString(s.Contents, "lecturer")
+                        ));
+                    }
+                }
+
+                if (candidates.Count > 0)
+                {
+                    candidates.Sort((a, b) => a.start.CompareTo(b.start));
+                    var next = candidates[0];
+
+                    string dayStr = i == 0
+                        ? "Hôm nay"
+                        : next.start.ToString("dd/MM");
+
+                    return (
+                        false,
+                        null,
+                        null,
+                        $"{next.start:HH:mm} ({dayStr}) - {next.course ?? "--"} - {next.lecturer ?? "--"}"
+                    );
+                }
+            }
+
+
+            return (false, null, null, "--");
+        }
+
+        private static bool IsScheduleEffective(BasicDigitalTwin s, DateTime date)
+        {
+            string fromStr = GetString(s.Contents, "effectiveFrom");
+            string toStr = GetString(s.Contents, "effectiveTo");
+
+            if (DateTime.TryParse(fromStr, out var from) && date < from) return false;
+            if (DateTime.TryParse(toStr, out var to) && date > to) return false;
+            return true;
+        }
+
+        private static bool IsScheduleDay(BasicDigitalTwin s, DayOfWeek dow)
+        {
+            if (!s.Contents.TryGetValue("weekdays", out var v) || v is null) return false;
+
+            string token = dow switch
+            {
+                DayOfWeek.Monday => "MON",
+                DayOfWeek.Tuesday => "TUE",
+                DayOfWeek.Wednesday => "WED",
+                DayOfWeek.Thursday => "THU",
+                DayOfWeek.Friday => "FRI",
+                DayOfWeek.Saturday => "SAT",
+                DayOfWeek.Sunday => "SUN",
+                _ => ""
+            };
+
+            // v có thể là string / JsonElement
+            if (v is string str)
+            {
+                // hỗ trợ cả "MON" và "MON,WED,FRI"
+                return str.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                          .Any(x => x.Equals(token, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (v is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.String)
+                {
+                    var str2 = je.GetString() ?? "";
+                    return str2.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                               .Any(x => x.Equals(token, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (je.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in je.EnumerateArray())
+                        if (item.ValueKind == JsonValueKind.String &&
+                            string.Equals(item.GetString(), token, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static (DateTimeOffset start, DateTimeOffset end) GetScheduleTime(BasicDigitalTwin s, DateTime baseDate)
+        {
+            // Mặc định múi giờ +7
+            TimeSpan offset = TimeSpan.FromHours(7);
+
+            string sStr = GetString(s.Contents, "startTime") ?? "00:00";
+            string eStr = GetString(s.Contents, "endTime") ?? "00:00";
+
+            TimeSpan.TryParse(sStr, out var tsStart);
+            TimeSpan.TryParse(eStr, out var tsEnd);
+
+            var start = new DateTimeOffset(baseDate.Year, baseDate.Month, baseDate.Day, tsStart.Hours, tsStart.Minutes, 0, offset);
+            var end = new DateTimeOffset(baseDate.Year, baseDate.Month, baseDate.Day, tsEnd.Hours, tsEnd.Minutes, 0, offset);
+
+            return (start, end);
+        }
+
+        private async Task<string?> GetFloorIdOfRoomAsync(string roomId, CancellationToken ct)
+        {
+            string q =
+                "SELECT f.$dtId AS fid " +
+                "FROM DIGITALTWINS f " +
+                "JOIN r RELATED f.hasRoom " +
+                $"WHERE r.$dtId = '{roomId}'";
+
+            await foreach (var row in _adt.QueryAsync<JsonElement>(q, ct))
+            {
+                if (row.TryGetProperty("fid", out var el))
+                    return el.GetString();
+            }
+            return null;
+        }
+
+        private async Task<string?> GetBuildingIdOfFloorAsync(string floorId, CancellationToken ct)
+        {
+            string q =
+                "SELECT b.$dtId AS bid " +
+                "FROM DIGITALTWINS b " +
+                "JOIN f RELATED b.hasFloor " +
+                $"WHERE f.$dtId = '{floorId}'";
+
+            await foreach (var row in _adt.QueryAsync<JsonElement>(q, ct))
+            {
+                if (row.TryGetProperty("bid", out var el))
+                    return el.GetString();
+            }
+            return null;
+        }
+
+        private async Task<string?> GetTwinNameAsync(string twinId, CancellationToken ct)
+        {
+            try
+            {
+                var twin = (await _adt.GetDigitalTwinAsync<BasicDigitalTwin>(twinId, ct)).Value;
+                return GetString(twin.Contents, "name");
+            }
+            catch
+            {
+                return null;
+            }
         }
 
     }
