@@ -1,5 +1,5 @@
 {
-  "@id": "dtmi:com:smartbuilding:RoomMetrics;3",
+  "@id": "dtmi:com:smartbuilding:RoomMetrics;4",
   "@type": "Interface",
   "@context": "dtmi:dtdl:context;2",
   "displayName": "Room Metrics",
@@ -13,18 +13,6 @@
     },
     {
       "@type": "Property",
-      "name": "minTemperature24h",
-      "schema": "double",
-      "displayName": "Temperature (min 24h)"
-    },
-    {
-      "@type": "Property",
-      "name": "maxTemperature24h",
-      "schema": "double",
-      "displayName": "Temperature (max 24h)"
-    },
-    {
-      "@type": "Property",
       "name": "lastMotionUtc",
       "schema": "dateTime",
       "displayName": "Last Motion"
@@ -34,6 +22,24 @@
       "name": "currentIlluminance",
       "schema": "double",
       "displayName": "Illuminance (current)"
+    },
+    {
+      "@type": "Property",
+      "name": "currentHumidity",
+      "schema": "double",
+      "displayName": "Humidity (%)"
+    },
+    {
+      "@type": "Property",
+      "name": "currentPowerW",
+      "schema": "double",
+      "displayName": "Power (W)"
+    },
+    {
+      "@type": "Property",
+      "name": "currentEnergyKWh",
+      "schema": "double",
+      "displayName": "Energy (kWh)"
     }
   ]
 }

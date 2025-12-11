@@ -17,7 +17,7 @@
     {
       "@type": "Relationship",
       "name": "hasRoom",
-      "target": "dtmi:com:smartbuilding:Room;1",
+      "target": "dtmi:com:smartbuilding:Room;7",
       "displayName": "Has Room"
     }
   ]

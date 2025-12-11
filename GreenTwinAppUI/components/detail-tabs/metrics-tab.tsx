@@ -1,180 +1,137 @@
 "use client"
 
+import { Room } from "@/lib/api"
 import { 
   Thermometer, 
-  Droplets, 
   Sun, 
+  Droplets, 
   Zap, 
-  Activity, 
-  Clock,
-  User
+  Footprints, 
+  Clock, 
+  Activity 
 } from "lucide-react"
-import type { Room } from "@/lib/api"
-import { format } from "date-fns"
 
-// --- Helper Component: Thẻ hiển thị chỉ số (Metric Card) ---
-interface MetricCardProps {
-  title: string
-  value: string | number
-  unit?: string
-  icon: any
-  colorClass: string // Ví dụ: "text-blue-600"
-  bgColorClass: string // Ví dụ: "bg-blue-50"
-  subValue?: string
-}
-
-function MetricCard({ title, value, unit, icon: Icon, colorClass, bgColorClass, subValue }: MetricCardProps) {
-  return (
-    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow h-full">
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</p>
-        <div className={`p-2 rounded-lg ${bgColorClass} ${colorClass}`}>
-          <Icon size={18} />
-        </div>
-      </div>
-      
-      <div>
-        <div className="flex items-baseline gap-1">
-          <span className={`text-2xl font-bold ${colorClass}`}>
-            {value}
-          </span>
-          {unit && <span className="text-sm text-gray-500 font-medium">{unit}</span>}
-        </div>
-        {subValue && (
-          <p className="text-xs text-gray-400 mt-1.5 border-t border-gray-50 pt-1.5">
-            {subValue}
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// --- Main Component ---
 interface MetricsTabProps {
   room: Room
 }
 
 export default function MetricsTab({ room }: MetricsTabProps) {
   
-  // 1. Format thời gian Last Motion
-  let lastMotionText = "--";
-  if (room.lastMotion) {
-    try {
-      // Parse string ISO (2025-12-05T08:18...) sang giờ hiển thị
-      lastMotionText = format(new Date(room.lastMotion), "HH:mm dd/MM");
-    } catch (e) { 
-      lastMotionText = room.lastMotion 
-    }
+  // Helper: Format thời gian từ UTC sang giờ địa phương
+  const formatTime = (utcString?: string) => {
+    if (!utcString) return "--"
+    const date = new Date(utcString)
+    return date.toLocaleString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit"
+    })
   }
 
-  // 2. Logic Occupancy (Dựa vào Motion sensor hoặc inClass)
-  const isOccupied = room.isOccupied || room.inClass;
+  // Helper: Chọn màu cho trạng thái chuyển động
+  const getMotionColor = (detected?: boolean) => {
+    return detected ? "text-red-600 bg-red-50" : "text-gray-500 bg-gray-100"
+  }
 
   return (
-    <div className="space-y-6">
-      
-      {/* KHỐI 1: NĂNG LƯỢNG (Energy & Power) */}
-      {/* Hiển thị Power (W) và Energy (kWh) từ hình ảnh PZEM-004T */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <Zap size={16} className="text-amber-500" />
-          Tiêu Thụ Năng Lượng
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <MetricCard 
-            title="Công Suất (Power)"
-            value={room.currentPowerW?.toFixed(1) ?? "--"}
-            unit="W"
-            icon={Activity}
-            colorClass="text-amber-600"
-            bgColorClass="bg-amber-50"
-            subValue="Tải tiêu thụ tức thời"
-          />
-          <MetricCard 
-            title="Điện Năng (Energy)"
-            value={room.currentEnergyKWh?.toFixed(2) ?? "--"}
-            unit="kWh"
-            icon={Zap}
-            colorClass="text-emerald-600"
-            bgColorClass="bg-emerald-50"
-            subValue="Tổng điện năng tích lũy"
-          />
-        </div>
-      </div>
-
-      {/* KHỐI 2: MÔI TRƯỜNG (Environment) */}
-      {/* Hiển thị Temp, Humidity (từ HumA001), Illuminance */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <Thermometer size={16} className="text-blue-500" />
-          Môi Trường
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <MetricCard 
-            title="Nhiệt độ"
-            value={room.currentTemperature?.toFixed(1) ?? "--"}
-            unit="°C"
-            icon={Thermometer}
-            colorClass="text-rose-600"
-            bgColorClass="bg-rose-50"
-            subValue={room.targetTemperature ? `Mục tiêu: ${room.targetTemperature}°C` : "Chưa đặt mục tiêu"}
-          />
-          <MetricCard 
-            title="Độ ẩm"
-            value={room.currentHumidity?.toFixed(1) ?? "--"}
-            unit="%"
-            icon={Droplets}
-            colorClass="text-cyan-600"
-            bgColorClass="bg-cyan-50"
-            subValue="Độ ẩm không khí"
-          />
-          <MetricCard 
-            title="Ánh sáng"
-            value={room.currentIlluminance?.toFixed(0) ?? "--"}
-            unit="Lux"
-            icon={Sun}
-            colorClass="text-orange-500"
-            bgColorClass="bg-orange-50"
-            subValue={room.targetLux ? `Mục tiêu: ${room.targetLux} Lx` : "Chưa đặt mục tiêu"}
-          />
-        </div>
-      </div>
-
-      {/* KHỐI 3: HIỆN DIỆN (Occupancy) */}
-      {/* Hiển thị trạng thái MotionA001 */}
-      <div>
-         <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <User size={16} className="text-purple-500" />
-          Trạng thái Phòng
-        </h3>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-full ${isOccupied ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
-                    <User size={24} />
-                </div>
-                <div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Cảm biến chuyển động</p>
-                    <p className={`text-lg font-bold ${isOccupied ? "text-green-700" : "text-gray-600"}`}>
-                        {isOccupied ? "Phát hiện có người" : "Không có người"}
-                    </p>
-                </div>
+    <div className="space-y-4 p-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* 1. Card Nhiệt Độ */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Temperature</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900">
+                {room.currentTemperature ?? "--"}
+              </span>
+              <span className="text-sm text-gray-500">°C</span>
             </div>
-            
-            <div className="text-right">
-                <div className="flex items-center justify-end gap-1 text-gray-400 mb-1">
-                    <Clock size={14} />
-                    <span className="text-xs font-semibold uppercase">Lần cuối phát hiện</span>
-                </div>
-                <div className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 inline-block">
-                    <span className="text-sm font-mono text-gray-700 font-medium">
-                        {lastMotionText}
-                    </span>
-                </div>
+            {room.targetTemperature && (
+              <p className="text-xs text-gray-400 mt-1">Target: {room.targetTemperature}°C</p>
+            )}
+          </div>
+          <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
+            <Thermometer size={20} />
+          </div>
+        </div>
+
+        {/* 2. Card Ánh Sáng */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Illuminance</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900">
+                {room.currentIlluminance ?? "--"}
+              </span>
+              <span className="text-sm text-gray-500">Lux</span>
+            </div>
+            {room.targetLux && (
+              <p className="text-xs text-gray-400 mt-1">Target: {room.targetLux} Lux</p>
+            )}
+          </div>
+          <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-500">
+            <Sun size={20} />
+          </div>
+        </div>
+
+        {/* 3. Card Độ Ẩm (MỚI) */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Humidity</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900">
+                {room.currentHumidity ?? "--"}
+              </span>
+              <span className="text-sm text-gray-500">%</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Relative Humidity</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+            <Droplets size={20} />
+          </div>
+        </div>
+
+        {/* 4. Card Năng Lượng & Công Suất (MỚI) */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Power & Energy</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900">
+                {room.currentPowerW ?? "--"}
+              </span>
+              <span className="text-sm text-gray-500">W</span>
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+              <Activity size={12} />
+              <span>Total: {room.currentEnergyKWh ?? "--"} kWh</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+            <Zap size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Card Cảm Biến Chuyển Động (MỚI - Full Width) */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+            <p className="text-sm text-gray-500 font-medium">Motion Sensor</p>
+            <div className={`px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 ${getMotionColor(room.motionDetected)}`}>
+                <Footprints size={12} />
+                {room.motionDetected ? "DETECTED" : "NO MOTION"}
+            </div>
+        </div>
+        
+        <div className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-xl">
+            <Clock size={16} className="text-gray-400" />
+            <div className="flex flex-col">
+                <span className="text-xs text-gray-400">Last detection time:</span>
+                <span className="font-medium">{formatTime(room.lastMotionUtc)}</span>
             </div>
         </div>
       </div>
-
     </div>
   )
 }

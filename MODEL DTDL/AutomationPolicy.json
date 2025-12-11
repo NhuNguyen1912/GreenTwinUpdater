@@ -1,5 +1,5 @@
 {
-  "@id": "dtmi:com:smartbuilding:AutomationPolicy;1",
+  "@id": "dtmi:com:smartbuilding:AutomationPolicy;2",
   "@type": "Interface",
   "@context": "dtmi:dtdl:context;2",
   "displayName": "Automation Policy",
@@ -17,20 +17,6 @@
       "name": "presenceTimeoutMinutes",
       "schema": "integer",
       "displayName": "Presence Timeout (min)",
-      "writable": true
-    },
-    {
-      "@type": "Property",
-      "name": "autoOffNoPresenceMinutes",
-      "schema": "integer",
-      "displayName": "Auto-off if no presence (min)",
-      "writable": true
-    },
-    {
-      "@type": "Property",
-      "name": "minOccupancyToStart",
-      "schema": "integer",
-      "displayName": "Min Occupancy To Start",
       "writable": true
     },
     {

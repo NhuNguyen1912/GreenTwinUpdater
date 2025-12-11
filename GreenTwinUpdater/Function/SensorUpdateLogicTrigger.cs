@@ -78,6 +78,14 @@ namespace GreenTwinUpdater
                 double tempValue = 0;
                 double luxValue = 0;
 
+                bool shouldUpdateHumidity = false;
+                bool shouldUpdatePower = false;
+                bool shouldUpdateEnergy = false;
+
+                double humidityValue = 0;
+                double powerValue = 0;
+                double energyValue = 0;
+
                 foreach (var patch in patchArray.EnumerateArray())
                 {
                     if (!patch.TryGetProperty("op", out var opEl) ||
@@ -118,9 +126,39 @@ namespace GreenTwinUpdater
                             luxValue = valEl.GetDouble();
                         }
                     }
+                    else if (path.Equals("/currentHumidity", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (valEl.ValueKind == JsonValueKind.Number)
+                        {
+                            shouldUpdateHumidity = true;
+                            humidityValue = valEl.GetDouble();
+                        }
+                    }
+                    else if (path.Equals("/currentPowerW", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (valEl.ValueKind == JsonValueKind.Number)
+                        {
+                            shouldUpdatePower = true;
+                            powerValue = valEl.GetDouble();
+                        }
+                    }
+                    else if (path.Equals("/currentEnergyKWh", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (valEl.ValueKind == JsonValueKind.Number)
+                        {
+                            shouldUpdateEnergy = true;
+                            energyValue = valEl.GetDouble();
+                        }
+                    }
+
                 }
 
-                if (!shouldUpdateLastMotion && !shouldUpdateTemp && !shouldUpdateLux)
+                if (!shouldUpdateLastMotion &&
+    !shouldUpdateTemp &&
+    !shouldUpdateLux &&
+    !shouldUpdateHumidity &&
+    !shouldUpdatePower &&
+    !shouldUpdateEnergy)
                 {
                     _logger.LogInformation("No relevant patch operations for sensor {Sensor}", sensorId);
                     return;
@@ -143,6 +181,21 @@ namespace GreenTwinUpdater
                 {
                     ops.Add(("/currentIlluminance", luxValue));
                 }
+                if (shouldUpdateHumidity)
+                {
+                    ops.Add(("/currentHumidity", humidityValue));
+                }
+
+                if (shouldUpdatePower)
+                {
+                    ops.Add(("/currentPowerW", powerValue));
+                }
+
+                if (shouldUpdateEnergy)
+                {
+                    ops.Add(("/currentEnergyKWh", energyValue));
+                }
+
 
                 // 7) Upsert vào component metrics
                 await UpsertComponentPropsAsync(roomId, "metrics", ops.ToArray());

@@ -18,12 +18,12 @@ export type Room = {
   targetTemperature?: number;
   currentIlluminance?: number;
   targetLux?: number;
-  currentEnergyKWh?: number;
 
-  currentHumidity?: number;
-  currentPowerW?: number;
-  lastMotion?: string;
-  isOccupied?: boolean;
+  currentHumidity?: number       
+  currentPowerW?: number         
+  currentEnergyKWh?: number      
+  motionDetected?: boolean       
+  lastMotionUtc?: string
 };
 
 export type Schedule = {

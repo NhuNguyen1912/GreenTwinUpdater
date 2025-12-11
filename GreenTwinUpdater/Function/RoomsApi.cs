@@ -40,70 +40,108 @@ namespace GreenTwinUpdater.Function
             CancellationToken ct)
         {
             var rooms = new List<object>();
-            string query =
-                "SELECT * FROM DIGITALTWINS room " +
-                "WHERE IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;5') " +
-                "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;4') " +
-                "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;3') " +
-                "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;2') " +
-                "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;1')";
 
-            await foreach (BasicDigitalTwin twin in _adt.QueryAsync<BasicDigitalTwin>(query, cancellationToken: ct))
+            try
             {
-                var contents = twin.Contents;
-                string name = GetString(contents, "name") ?? GetString(contents, "roomNumber") ?? twin.Id;
-                string building = GetString(contents, "building") ?? "Unknown";
-                string floor = GetString(contents, "floor") ?? "1";
+                // Query rộng để đảm bảo bắt được mọi version của Room
+                string query =
+                    "SELECT * FROM DIGITALTWINS room " +
+                    "WHERE IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;7') " +
+                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;8') " +
+                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;9') " +
+                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;10') " +
+                    "OR IS_OF_MODEL(room, 'dtmi:com:smartbuilding:Room;11')";
 
-                double? targetTemp = GetDouble(contents, "targetTemperature");
-                double? targetLux = GetDouble(contents, "targetLux");
-                double? currentTemp = null;
-                double? currentLux = null;
-                double? energy = null;
-                bool inClass = false;
-
-                if (contents.TryGetValue("metrics", out var metricsRaw) && metricsRaw is not null)
+                await foreach (BasicDigitalTwin twin in _adt.QueryAsync<BasicDigitalTwin>(query, cancellationToken: ct))
                 {
-                    if (metricsRaw is JsonElement je && je.ValueKind == JsonValueKind.Object)
+                    try
                     {
-                        currentTemp = GetDoubleFromJson(je, "currentTemperature");
-                        currentLux = GetDoubleFromJson(je, "currentIlluminance");
-                        energy = GetDoubleFromJson(je, "currentEnergyKWh");
+                        var contents = twin.Contents;
+
+                        // 1. Thông tin cơ bản
+                        string name = GetString(contents, "name") ?? GetString(contents, "roomNumber") ?? twin.Id;
+                        string building = GetString(contents, "building") ?? "Unknown";
+                        string floor = GetString(contents, "floor") ?? "1";
+                        double? targetTemp = GetDouble(contents, "targetTemperature");
+                        double? targetLux = GetDouble(contents, "targetLux");
+
+                        double? currentTemp = null;
+                        double? currentLux = null;
+                        double? currentHumidity = null;
+                        double? currentPowerW = null;
+                        double? currentEnergyKWh = null;
+                        string? lastMotionUtc = null;
+
+
+                        if (contents.TryGetValue("metrics", out var metricsRaw) && metricsRaw is not null)
+                        {
+                            if (metricsRaw is JsonElement je && je.ValueKind == JsonValueKind.Object)
+                            {
+                                currentTemp = GetDoubleFromJson(je, "currentTemperature");
+                                currentLux = GetDoubleFromJson(je, "currentIlluminance");
+                                currentHumidity = GetDoubleFromJson(je, "currentHumidity");
+                                currentPowerW = GetDoubleFromJson(je, "currentPowerW");
+                                currentEnergyKWh = GetDoubleFromJson(je, "currentEnergyKWh");
+                                lastMotionUtc = GetStringFromJson(je, "lastMotionUtc");
+
+                            }
+                            else if (metricsRaw is BasicDigitalTwinComponent comp)
+                            {
+                                currentTemp = GetDouble(comp.Contents, "currentTemperature");
+                                currentLux = GetDouble(comp.Contents, "currentIlluminance");
+                                currentHumidity = GetDouble(comp.Contents, "currentHumidity");
+                                currentPowerW = GetDouble(comp.Contents, "currentPowerW");
+                                currentEnergyKWh = GetDouble(comp.Contents, "currentEnergyKWh");
+                                lastMotionUtc = GetString(comp.Contents, "lastMotionUtc");
+
+                            }
+                        }
+
+                        // 4. Tổng hợp & Làm tròn số
+                        rooms.Add(new
+                        {
+                            id = twin.Id,
+                            name,
+                            building,
+                            floor,
+
+                            // Làm tròn 1 chữ số thập phân
+                            targetTemperature = Round(targetTemp),
+                            targetLux = Round(targetLux),
+
+                            currentTemperature = Round(currentTemp),
+                            currentIlluminance = Round(currentLux),
+
+                            // QUAN TRỌNG: Đổi tên key thành 'lastMotionUtc' cho khớp với Frontend
+                            lastMotionUtc = lastMotionUtc,
+
+                            currentHumidity = Round(currentHumidity),
+                            currentPowerW = Round(currentPowerW),
+                            currentEnergyKWh = Round(currentEnergyKWh),
+                            motionDetected = lastMotionUtc != null,
+
+
+                            inClass = false // Logic check lịch (nếu có)
+                        });
                     }
-                    else if (metricsRaw is IDictionary<string, object> dict)
+                    catch (Exception exInner)
                     {
-                        currentTemp = GetDouble(dict, "currentTemperature");
-                        currentLux = GetDouble(dict, "currentIlluminance");
-                        energy = GetDouble(dict, "currentEnergyKWh");
-                    }
-                    else if (metricsRaw is BasicDigitalTwinComponent comp)
-                    {
-                        currentTemp = GetDouble(comp.Contents, "currentTemperature");
-                        currentLux = GetDouble(comp.Contents, "currentIlluminance");
-                        energy = GetDouble(comp.Contents, "currentEnergyKWh");
+                        _logger.LogError($"Error processing room {twin.Id}: {exInner.Message}");
                     }
                 }
-
-                rooms.Add(new
-                {
-                    id = twin.Id,
-                    name,
-                    building,
-                    floor,
-                    inClass,
-                    currentTemperature = currentTemp,
-                    targetTemperature = targetTemp,
-                    currentIlluminance = currentLux,
-                    targetLux = targetLux,
-                    currentEnergyKWh = energy
-                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"CRITICAL ERROR in GetRooms: {ex.Message}");
+                var err = req.CreateResponse(HttpStatusCode.InternalServerError);
+                await err.WriteStringAsync($"Error: {ex.Message}");
+                return err;
             }
 
             var res = req.CreateResponse(HttpStatusCode.OK);
             await res.WriteAsJsonAsync(rooms);
             return res;
         }
-
         // ==========================================
         // 2. CREATE SCHEDULE
         // ==========================================
@@ -215,7 +253,7 @@ namespace GreenTwinUpdater.Function
                     string roomName = "Unknown Room";
 
                     var parts = s.Id.Split('_');
-                    
+
                     if (parts.Length >= 2)
                     {
                         roomId = parts[1]; // Lấy được "A001" ngay lập tức
@@ -343,6 +381,13 @@ namespace GreenTwinUpdater.Function
         {
             if (!dict.TryGetValue(key, out var value) || value is null) return null;
             if (value is bool b) return b;
+
+            // Xử lý JsonElement (quan trọng khi query trả về)
+            if (value is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.True) return true;
+                if (je.ValueKind == JsonValueKind.False) return false;
+            }
             if (bool.TryParse(value.ToString(), out var parsed)) return parsed;
             return null;
         }
@@ -352,7 +397,12 @@ namespace GreenTwinUpdater.Function
             if (!dict.TryGetValue(key, out var value) || value is null) return null;
             if (value is double d) return d;
             if (value is float f) return f;
-            if (value is JsonElement je && je.ValueKind == JsonValueKind.Number && je.TryGetDouble(out var jd)) return jd;
+            if (value is int i) return i;
+            if (value is long l) return l; // Power/Energy đôi khi là int/long
+
+            if (value is JsonElement je && je.ValueKind == JsonValueKind.Number)
+                return je.TryGetDouble(out var jd) ? jd : null;
+
             if (double.TryParse(value.ToString(), out var parsed)) return parsed;
             return null;
         }
@@ -375,5 +425,56 @@ namespace GreenTwinUpdater.Function
             public string EffectiveFrom { get; set; }
             public string EffectiveTo { get; set; }
         }
+
+        // --- Helper tìm kiếm thông minh (Case-Insensitive) ---
+
+        private double? FindValue(IDictionary<string, object> contents, string keyword)
+        {
+            foreach (var kvp in contents)
+            {
+                // Nếu tên thuộc tính chứa từ khóa (ví dụ "CurrentHumidity" chứa "humidity")
+                if (kvp.Key.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Thử parse giá trị sang double
+                    if (kvp.Value is JsonElement je && je.ValueKind == JsonValueKind.Number)
+                        return je.GetDouble();
+
+                    if (double.TryParse(kvp.Value?.ToString(), out double val))
+                        return val;
+                }
+            }
+            return null;
+        }
+
+        private bool? FindBoolValue(IDictionary<string, object> contents, string keyword)
+        {
+            foreach (var kvp in contents)
+            {
+                if (kvp.Key.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (kvp.Value is JsonElement je)
+                    {
+                        if (je.ValueKind == JsonValueKind.True) return true;
+                        if (je.ValueKind == JsonValueKind.False) return false;
+                    }
+                    if (bool.TryParse(kvp.Value?.ToString(), out bool val))
+                        return val;
+                }
+            }
+            return null;
+        }
+
+        private static double? Round(double? val)
+        {
+            if (!val.HasValue) return null;
+            return Math.Round(val.Value, 1);
+        }
+
+        private static string? GetStringFromJson(JsonElement obj, string prop)
+        {
+            if (!obj.TryGetProperty(prop, out var el)) return null;
+            return el.ToString();
+        }
+
     }
 }

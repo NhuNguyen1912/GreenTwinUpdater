@@ -82,10 +82,10 @@ namespace GreenTwinUpdater.Function
 
             string qRooms =
                 "SELECT t.$dtId AS twinId FROM DIGITALTWINS t " +
-                "WHERE IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;5') " +
-                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;3') " +
-                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;2') " +
-                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;1')";
+                "WHERE IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;7') " +
+                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;8') " +
+                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;9') " +
+                "   OR IS_OF_MODEL(t, 'dtmi:com:smartbuilding:Room;10')";
 
             await foreach (var row in _adt.QueryAsync<System.Text.Json.JsonElement>(qRooms, ct))
             {

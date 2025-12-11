@@ -1,5 +1,5 @@
 {
-  "@id": "dtmi:com:smartbuilding:Room;5",
+  "@id": "dtmi:com:smartbuilding:Room;7",
   "@type": "Interface",
   "@context": "dtmi:dtdl:context;2",
   "extends": [
@@ -13,13 +13,6 @@
       "name": "roomNumber",
       "schema": "string",
       "displayName": "Room Number"
-    },
-    {
-      "@type": "Property",
-      "name": "capacity",
-      "schema": "integer",
-      "displayName": "Capacity",
-      "writable": true
     },
     {
       "@type": "Property",
@@ -39,13 +32,13 @@
     {
       "@type": "Component",
       "name": "policy",
-      "schema": "dtmi:com:smartbuilding:AutomationPolicy;1",
+      "schema": "dtmi:com:smartbuilding:AutomationPolicy;2",
       "displayName": "Automation Policy"
     },
     {
       "@type": "Component",
       "name": "metrics",
-      "schema": "dtmi:com:smartbuilding:RoomMetrics;3",
+      "schema": "dtmi:com:smartbuilding:RoomMetrics;4",
       "displayName": "Metrics"
     },
     {
