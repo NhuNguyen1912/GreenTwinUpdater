@@ -24,6 +24,11 @@ export type Room = {
   currentEnergyKWh?: number      
   motionDetected?: boolean       
   lastMotionUtc?: string
+
+  policy?: {
+    overrideActive: boolean
+    overrideUntil?: string
+  }
 };
 
 export type Schedule = {

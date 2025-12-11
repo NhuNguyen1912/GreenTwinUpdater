@@ -4,14 +4,15 @@ import { useState, useEffect } from "react"
 import HomeTab from "@/components/tabs/home-tab"
 import RoomsTab from "@/components/tabs/rooms-tab"
 import ScheduleTab from "@/components/tabs/schedule-tab"
-import { Home, Building2, Calendar } from "lucide-react"
+import { Home, Building2, Calendar, Box } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
+import View3DTab from "@/components/tabs/view-3d-tab"
 
 export default function GreenTwinApp() {
   const { isAuthenticated, user, logout } = useAuth() // <-- Lấy user
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<"home" | "rooms" | "schedule">("home")
+  const [activeTab, setActiveTab] = useState<"home" | "rooms" | "schedule" | "3d">("home")
 
   // Check login
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function GreenTwinApp() {
         {activeTab === "home" && <HomeTab />}
         {activeTab === "rooms" && <RoomsTab />}
         {activeTab === "schedule" && <ScheduleTab />}
+        {activeTab === "3d" && <View3DTab />}
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-lg">
@@ -59,6 +61,15 @@ export default function GreenTwinApp() {
             <Calendar size={24} strokeWidth={activeTab === "schedule" ? 2.5 : 2} />
             <span className="text-xs font-medium">Schedule</span>
           </button>
+          <button
+          onClick={() => setActiveTab("3d")}
+          className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
+            activeTab === "3d" ? "text-green-600 bg-green-50" : "text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          <Box size={24} strokeWidth={activeTab === "3d" ? 2.5 : 2} />
+          <span className="text-xs font-medium">3D View</span>
+        </button>
         </div>
       </nav>
     </main>

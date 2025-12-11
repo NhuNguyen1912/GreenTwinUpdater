@@ -40,6 +40,9 @@ namespace GreenTwinUpdater.Function
     CancellationToken ct)
         {
             var rooms = new List<object>();
+            TimeZoneInfo tz;
+            try { tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"); }
+            catch { tz = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"); }
 
             try
             {
@@ -113,7 +116,37 @@ namespace GreenTwinUpdater.Function
                                 lastMotionUtc = GetString(comp.Contents, "lastMotionUtc");
                             }
                         }
+                        bool overrideActive = false;
+                        string? overrideUntil = null;
 
+                        if (contents.TryGetValue("policy", out var policyRaw) && policyRaw is not null)
+                        {
+                            if (policyRaw is JsonElement je && je.ValueKind == JsonValueKind.Object)
+                            {
+                                // Lấy trạng thái
+                                if (je.TryGetProperty("overrideActive", out var oa) && (oa.ValueKind == JsonValueKind.True))
+                                    overrideActive = true;
+                                
+                                // Lấy thời gian hết hạn
+                                if (overrideActive && je.TryGetProperty("overrideExpiresOn", out var exp))
+                                {
+                                    if (DateTimeOffset.TryParse(exp.GetString(), out var expiresUtc))
+                                    {
+                                        // Kiểm tra nếu hết hạn rồi thì coi như false
+                                        if (expiresUtc <= DateTimeOffset.UtcNow)
+                                        {
+                                            overrideActive = false;
+                                        }
+                                        else
+                                        {
+                                            // Format giờ VN: "14:30"
+                                            var localExp = TimeZoneInfo.ConvertTime(expiresUtc, tz);
+                                            overrideUntil = localExp.ToString("HH:mm");
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         // ===== SCHEDULE =====
                         var scheduleStatus = await GetRoomScheduleStatusAsync(twin.Id, ct);
 
@@ -140,7 +173,13 @@ namespace GreenTwinUpdater.Function
                             inClass = scheduleStatus.InClass,
                             courseName = scheduleStatus.Course,
                             lecturerName = scheduleStatus.Lecturer,
-                            nextClass = scheduleStatus.NextClass
+                            nextClass = scheduleStatus.NextClass,
+
+                            policy = new 
+                            {
+                                overrideActive = overrideActive,
+                                overrideUntil = overrideUntil
+                            }
                         });
                     }
                     catch (Exception exInner)
