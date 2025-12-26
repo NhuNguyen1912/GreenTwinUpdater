@@ -90,40 +90,14 @@ export type AcState = {
 };
 
 
-// ---------- Constants (API base & keys) ----------
+const BASE_URL = "/api/backend"; // gọi proxy nội bộ
 
-const BASE_URL =
-  "https://greentwiniotcentraltrigger-ezgmgugyb9fkfwem.japaneast-01.azurewebsites.net/api";
-
-// --- ROOM KEYS ---
-const ROOMS_KEY =
-  "XcGh9Rjnkz-NiNrgK6_qD4_slZugmc38Qob2svJAcFEJAzFuoBUalg==";
-
-const DEVICES_KEY =
-  "uKQLG3SulECzSU_jJPLsNBoVPG889Qy5IaaxNmiJ5G9QAzFuPH_SrQ==";
-
-// --- SCHEDULE KEYS (TODO: Hãy điền key thật từ Azure Portal vào đây) ---
-const SCHEDULES_KEY = "eSCCmJ4DKYgcmQ0YPab8aDMJ5pWuSJQLO7-n3PnV2i5AAzFuSIAbLg=="; 
-const CREATE_SCHED_KEY = "OnmL436GYbEjy9MQ9CCxvK3Bhb0vRmC7_aDn8vYHuvBBAzFuK1NCMw=="; 
-const DEL_SCHED_KEY = "Z7O9oOwF5F0YLXg46BvQ_SsVZyjPyVMZqIirU8gsFZhGAzFu0IKyig=="; 
-
-// --- CONTROL KEYS ---
-const AC_CONTROL_KEY =
-  "bQAT_PQdIK8_JdHjU6tb1XvNt6-NQ77MnXYtMztVqdCYAzFuGFUySQ=="; 
-
-const AC_STATE_KEY = "8d-Vxdj_SdNoek78nrbj3k8s1UWfbKXwt27XjEZxyp7PAzFucjwhVg==";
-
-const LIGHT_CONTROL_KEY =
-  "s8nazlhbZ6i5h2WAj2FzPkj0p-H1NtkkrZLHT_h6RAKzAzFunXpung==";
-
-const LIGHT_STATE_KEY =
-  "Mk8ouqhlOoqhCxYnIgxF3aVleuQ2TBujU-f-bpG_p1GDAzFuZq9lFA==";
 
 // ---------- API calls ----------
 
 // 1. Lấy danh sách phòng
 export async function getRooms(): Promise<Room[]> {
-  const res = await fetch(`${BASE_URL}/rooms?code=${ROOMS_KEY}`, {
+  const res = await fetch(`${BASE_URL}/rooms`, {
     cache: "no-store",
   });
 
@@ -138,7 +112,7 @@ export async function getRooms(): Promise<Room[]> {
 // 2. Lấy danh sách lịch học (API Thật)
 export async function getSchedules(): Promise<Schedule[]> {
   // Gọi endpoint GetSchedules
-  const res = await fetch(`${BASE_URL}/schedules?code=${SCHEDULES_KEY}`, { 
+  const res = await fetch(`${BASE_URL}/schedules`, { 
     cache: "no-store" 
   });
 
@@ -164,7 +138,7 @@ export async function createSchedule(
   }
 ): Promise<Schedule> {
   const res = await fetch(
-    `${BASE_URL}/rooms/${roomId}/schedules?code=${CREATE_SCHED_KEY}`,
+    `${BASE_URL}/rooms/${roomId}/schedules`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -185,7 +159,7 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
   const encodedId = encodeURIComponent(scheduleId);
   
   const res = await fetch(
-    `${BASE_URL}/schedules/${encodedId}?code=${DEL_SCHED_KEY}`,
+    `${BASE_URL}/schedules/${encodedId}`,
     { method: "DELETE" }
   );
 
@@ -200,7 +174,7 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
 // 5. Lấy danh sách thiết bị trong 1 room
 export async function getDevicesForRoom(roomId: string): Promise<Device[]> {
   const res = await fetch(
-    `${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices?code=${DEVICES_KEY}`,
+    `${BASE_URL}/rooms/${encodeURIComponent(roomId)}/devices`,
     { cache: "no-store" }
   );
 
@@ -223,7 +197,7 @@ export async function getAcState(
       roomId
     )}/devices/${encodeURIComponent(
       deviceId
-    )}/ac-state?code=${AC_STATE_KEY}`,
+    )}/ac-state`,
     { cache: "no-store" }
   );
 
@@ -258,7 +232,7 @@ export async function updateAcSettings(
       roomId
     )}/devices/${encodeURIComponent(
       deviceId
-    )}/ac-control?code=${AC_CONTROL_KEY}`,
+    )}/ac-control`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -290,7 +264,7 @@ export async function getLightState(
       roomId
     )}/devices/${encodeURIComponent(
       deviceId
-    )}/light-state?code=${LIGHT_STATE_KEY}`,
+    )}/light-state`,
     { cache: "no-store" }
   );
 
@@ -319,7 +293,7 @@ export async function updateLightSettings(
       roomId
     )}/devices/${encodeURIComponent(
       deviceId
-    )}/light-control?code=${LIGHT_CONTROL_KEY}`,
+    )}/light-control`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -53,21 +53,6 @@
     },
 
     {
-      "@type": "Property",
-      "name": "minSetpoint",
-      "schema": "double",
-      "displayName": "Min Setpoint (°C)",
-      "writable": true
-    },
-    {
-      "@type": "Property",
-      "name": "maxSetpoint",
-      "schema": "double",
-      "displayName": "Max Setpoint (°C)",
-      "writable": true
-    },
-
-    {
       "@type": "Command",
       "name": "setPower",
       "request": { "name": "state", "schema": "boolean" },

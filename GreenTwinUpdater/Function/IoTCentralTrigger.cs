@@ -49,7 +49,7 @@ namespace GreenTwinUpdater.Function
 
         [Function("IoTCentralTrigger")]
         public async Task RunAsync(
-            [ServiceBusTrigger("iotcentral", Connection = "ServiceBusConnection")]
+            [ServiceBusTrigger("iots-telemetry", Connection = "ServiceBusConnection")]
             ServiceBusReceivedMessage message)
         {
             string messageBody = "(unreadable)";
@@ -90,7 +90,8 @@ namespace GreenTwinUpdater.Function
 
                 var patch = new JsonPatchDocument();
                 int added = 0;
-                JsonElement dataObject;
+                JsonElement dataObject = default;
+                bool hasTelemetryObj = false;
 
                 // Trường hợp 1: Telemetry (Dạng Object)
                 if (norm == NormalizedType.Telemetry)
@@ -202,6 +203,8 @@ namespace GreenTwinUpdater.Function
                 await _client.UpdateDigitalTwinAsync(twinId, patch);
                 _logger.LogInformation("Patched {Count} key(s) on twin {Twin} (model {Model}) from {Type}",
                     added, twinId, modelName, rawType);
+                await UpdateParentRoomMetricsAsync(deviceTwinId: twinId, sensorModelName: modelName, telemetryObj: dataObject);
+
             }
             catch (RequestFailedException adtEx)
             {
@@ -301,5 +304,95 @@ namespace GreenTwinUpdater.Function
                     return false;
             }
         }
+
+        private async Task UpdateParentRoomMetricsAsync(string deviceTwinId, string sensorModelName, JsonElement telemetryObj)
+        {
+            // 1) Tìm room cha qua quan hệ hasDevice
+            var roomIds = await FindParentRoomsByDeviceAsync(deviceTwinId);
+            if (roomIds.Count == 0) return;
+
+            // 2) Build patch cho Room.metrics
+            var roomPatch = new JsonPatchDocument();
+            int added = 0;
+
+            // Map telemetry -> metrics
+            // Lưu ý: tên property metrics phải đúng với DTDL RoomMetrics của bạn: metrics.currentTemperature/currentHumidity/...
+            if (sensorModelName.Equals("TemperatureSensor", StringComparison.OrdinalIgnoreCase)
+                && telemetryObj.TryGetProperty("temperature", out var tEl)
+                && TryExtractValue(tEl, out var tVal) && tVal is not null)
+            {
+                roomPatch.AppendReplace("/metrics/currentTemperature", tVal);
+                added++;
+            }
+
+            if (sensorModelName.Equals("HumiditySensor", StringComparison.OrdinalIgnoreCase)
+                && telemetryObj.TryGetProperty("currentHumidity", out var hEl)
+                && TryExtractValue(hEl, out var hVal) && hVal is not null)
+            {
+                roomPatch.AppendReplace("/metrics/currentHumidity", hVal);
+                added++;
+            }
+
+            if (sensorModelName.Equals("LightSensor", StringComparison.OrdinalIgnoreCase)
+                && telemetryObj.TryGetProperty("illuminance", out var lEl)
+                && TryExtractValue(lEl, out var lVal) && lVal is not null)
+            {
+                // Nếu DTDL của bạn dùng currentLux thì đổi path thành /metrics/currentLux
+                roomPatch.AppendReplace("/metrics/currentIlluminance", lVal);
+                added++;
+            }
+
+            if (sensorModelName.Equals("EnergyMeter", StringComparison.OrdinalIgnoreCase))
+            {
+                if (telemetryObj.TryGetProperty("currentPowerW", out var pEl)
+                    && TryExtractValue(pEl, out var pVal) && pVal is not null)
+                {
+                    roomPatch.AppendReplace("/metrics/currentPowerW", pVal);
+                    added++;
+                }
+
+                if (telemetryObj.TryGetProperty("currentEnergyKWh", out var eEl)
+                    && TryExtractValue(eEl, out var eVal) && eVal is not null)
+                {
+                    roomPatch.AppendReplace("/metrics/currentEnergyKWh", eVal);
+                    added++;
+                }
+            }
+
+            if (sensorModelName.Equals("MotionSensor", StringComparison.OrdinalIgnoreCase)
+                && telemetryObj.TryGetProperty("motion", out var mEl)
+                && TryExtractValue(mEl, out var mVal) && mVal is bool motion && motion)
+            {
+                roomPatch.AppendReplace("/metrics/lastMotionUtc", DateTime.UtcNow.ToString("O"));
+                added++;
+            }
+
+            if (added == 0) return;
+
+            // 3) Patch tất cả room cha (thường chỉ 1)
+            foreach (var roomId in roomIds)
+            {
+                await _client.UpdateDigitalTwinAsync(roomId, roomPatch);
+            }
+        }
+
+        private async Task<List<string>> FindParentRoomsByDeviceAsync(string deviceTwinId)
+        {
+            // Room -> hasDevice -> Device
+            // Query tìm roomId có relationship hasDevice tới deviceTwinId
+            string q = $"SELECT room.$dtId FROM DIGITALTWINS room " +
+                       $"JOIN dev RELATED room.hasDevice " +
+                       $"WHERE dev.$dtId = '{deviceTwinId.Replace("'", "''")}'";
+
+            var results = new List<string>();
+
+            await foreach (var row in _client.QueryAsync<JsonElement>(q))
+            {
+                if (row.TryGetProperty("$dtId", out var idEl) && idEl.ValueKind == JsonValueKind.String)
+                    results.Add(idEl.GetString()!);
+            }
+            return results;
+        }
+
     }
 }

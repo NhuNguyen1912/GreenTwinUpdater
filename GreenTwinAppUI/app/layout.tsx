@@ -3,9 +3,13 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AuthProvider } from "@/components/auth-provider"
+import Chatbot from "@/components/chatbot";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Inter } from "next/font/google";
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'Smart Campus - GreenTwin',
@@ -39,16 +43,24 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
-        <AuthProvider> {/* <-- Bọc AuthProvider ở đây */}
-          {children}
-          <Analytics />
+    <html lang="vi" suppressHydrationWarning>
+      <body className={inter.className}>
+        {/* 2. BỌC AUTH PROVIDER Ở NGOÀI CÙNG (hoặc ngay trong body) */}
+        <AuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Chatbot />
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
-  )
+  );
 }

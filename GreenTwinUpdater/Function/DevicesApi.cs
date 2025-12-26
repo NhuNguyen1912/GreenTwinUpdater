@@ -93,18 +93,24 @@ WHERE room.$dtId = '{roomId}'";
         }
 
         private static string MapDeviceType(string modelId)
-        {
-            if (string.IsNullOrEmpty(modelId)) return "device";
+{
+    if (string.IsNullOrEmpty(modelId)) return "device";
 
-            modelId = modelId.ToLowerInvariant();
+    var id = modelId.ToLowerInvariant();
 
-            if (modelId.Contains("acunit")) return "ac";
-            if (modelId.Contains("lightswitch") || modelId.Contains("light")) return "light";
-            if (modelId.Contains("temperature") || modelId.Contains("humidity") || modelId.Contains("motion"))
-                return "sensor";
-            if (modelId.Contains("energymeter")) return "energy";
+    // Actuators
+    if (id.Contains("acunit")) return "ac";
+    if (id.Contains("lightswitch")) return "light";
 
-            return "device";
-        }
+    // Sensors (bao gồm lightsensor)
+    if (id.Contains("lightsensor") || id.Contains("lux")) return "sensor";
+    if (id.Contains("temperaturesensor") || id.Contains("humiditysensor") || id.Contains("motionsensor"))
+        return "sensor";
+
+    if (id.Contains("energymeter")) return "energy";
+
+    return "device";
+}
+
     }
 }
