@@ -6,13 +6,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: [
-    'three',
-    '@react-three/fiber',
-    '@react-three/drei',
-    'camera-controls',
-    'mapbox-gl' 
-  ]
+  experimental: {
+    serverComponentsExternalPackages: [ 
+      'three',
+      '@react-three/fiber',
+      '@react-three/drei',
+      'camera-controls',
+      'mapbox-gl'
+    ],
+  }
 };
 
 export default nextConfig;
