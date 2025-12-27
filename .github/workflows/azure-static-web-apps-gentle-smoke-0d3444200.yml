@@ -13,11 +13,9 @@ jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    env:
-      NODE_VERSION: '20'
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
@@ -29,15 +27,21 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_GENTLE_SMOKE_0D3444200 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
+
+          # App Next.js nằm trong đây
           app_location: "./GreenTwinAppUI"
-          api_location: ""
+
+          # API Azure Functions nằm ở thư mục api (cùng cấp GreenTwinAppUI)
+          api_location: "api"
+
+          # Next static export tạo thư mục out
           output_location: "out"
+        env:
+          NODE_VERSION: 20
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    env:
-      NODE_VERSION: '20'
     name: Close Pull Request Job
     steps:
       - name: Close Pull Request
@@ -46,4 +50,3 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_GENTLE_SMOKE_0D3444200 }}
           action: "close"
-
