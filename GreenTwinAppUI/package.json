@@ -1,7 +1,7 @@
 {
   "name": "my-v0-project",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "version": "0.1.0",
   "private": true,
