@@ -159,7 +159,7 @@ GreenTwin/
 
 ## 👥 THÔNG TIN TÁC GIẢ
 
-* **[Diệp Trương Khánh Băng]** - MSSV: 52200238
+* **[DIỆP TRƯƠNG KHÁNH BĂNG]** - MSSV: 52200238
 * **[NGUYỄN NGỌC QUỲNH NHƯ]** - MSSV: 52200281
 * **Giảng viên hướng dẫn:** **[LÊ VIẾT THANH]**
 
