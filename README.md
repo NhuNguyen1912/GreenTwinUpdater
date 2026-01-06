@@ -19,9 +19,6 @@
 * **Cơ chế Tiết kiệm năng lượng (Energy Saver):** Tự động gửi lệnh **TẮT TOÀN BỘ** thiết bị sau **15 phút** nếu:
     * Đã kết thúc giờ học.
     * **VÀ** Cảm biến không phát hiện chuyển động trong thời gian dài.
-* **Logic môi trường:**
-    * Tự động bật điều hòa khi **Nhiệt độ > 27.2°C**.
-    * Tự động tăng độ sáng đèn khi phát hiện có người.
 
 ### 4. Phân tích dữ liệu (Analytics)
 * Biểu đồ lịch sử tiêu thụ năng lượng giúp nhận diện các khung giờ cao điểm và lãng phí điện năng.
